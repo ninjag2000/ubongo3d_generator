@@ -1958,6 +1958,57 @@ function printReadyCards() {
 function printNow() {
   void document.getElementById("printSheet")?.offsetHeight;
   window.print();
+  setStatus("Print requested. If no dialog opens, use Open print page or Ctrl+P.");
+}
+
+function openPrintPage() {
+  const sheet = document.getElementById("printSheet");
+  if (!sheet || !sheet.children.length) {
+    setStatus("Generate a card before printing.");
+    return false;
+  }
+  const popup = window.open("", "_blank");
+  if (!popup) {
+    setStatus("Popup blocked. Allow popups for this site or press Ctrl+P on the preview.");
+    return false;
+  }
+  const stylesheetHref = document.querySelector('link[rel="stylesheet"]')?.getAttribute("href") || "style.css";
+  const title = "Ubongo 3D print sheet";
+  const html = `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>${title}</title>
+  <link rel="stylesheet" href="${stylesheetHref}">
+  <style>
+    .standalonePrintToolbar {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      margin: 16px 0;
+    }
+    @media print {
+      .standalonePrintToolbar {
+        display: none !important;
+      }
+    }
+  </style>
+</head>
+<body class="printPreviewMode">
+  <div class="standalonePrintToolbar">
+    <button type="button" onclick="window.print()">Print</button>
+    <button type="button" onclick="window.close()">Close</button>
+  </div>
+  ${sheet.outerHTML}
+</body>
+</html>`;
+  popup.document.open();
+  popup.document.write(html);
+  popup.document.close();
+  popup.focus?.();
+  setStatus("Print page opened. Use its Print button or Ctrl+P.");
+  return true;
 }
 
 function exitPrintPreview() {
@@ -2288,6 +2339,7 @@ document.getElementById("generate").onclick = () => {
 
 document.getElementById("print").onclick = printReadyCards;
 document.getElementById("printNow").onclick = printNow;
+document.getElementById("openPrintPage").onclick = openPrintPage;
 document.getElementById("exitPrintPreview").onclick = exitPrintPreview;
 
 document.getElementById("exportJson").onclick = () => {

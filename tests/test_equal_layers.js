@@ -22,7 +22,7 @@ const inputs = {
   card: makeTestElement("section"),
   meta: makeTestElement("div"),
   gameCardView: makeTestElement("div"),
-  printSheet: makeTestElement("section"),
+  printSheet: Object.assign(makeTestElement("section"), { className: "printSheet" }),
   layers: makeTestElement("div"),
   combosTitle: makeTestElement("h3"),
   combos: makeTestElement("div"),
@@ -78,6 +78,16 @@ function makeTestElement(tagName = "div") {
       },
     },
   };
+  Object.defineProperty(element, "outerHTML", {
+    get() {
+      const attrsObject = { ...element.attributes };
+      if (element.className && !attrsObject.class) attrsObject.class = element.className;
+      const attrs = Object.entries(attrsObject)
+        .map(([name, value]) => ` ${name}="${String(value)}"`)
+        .join("");
+      return `<${tagName}${attrs}>${element.children.map((child) => child.outerHTML || "").join("")}${element.textContent || ""}</${tagName}>`;
+    },
+  });
   Object.defineProperty(element, "innerHTML", {
     get() {
       return element._innerHTML;
@@ -125,9 +135,36 @@ function averageFaceCenterX(faces) {
 }
 
 let printCallCount = 0;
+let popupOpenCount = 0;
+let lastPopup = null;
+let blockedPopup = false;
 global.window = {
   print() {
     printCallCount++;
+  },
+  open() {
+    popupOpenCount++;
+    if (blockedPopup) return null;
+    lastPopup = {
+      html: "",
+      focused: false,
+      document: {
+        open() {
+          this.owner.html = "";
+        },
+        write(html) {
+          this.owner.html += html;
+        },
+        close() {
+          this.owner.closed = true;
+        },
+      },
+      focus() {
+        this.focused = true;
+      },
+    };
+    lastPopup.document.owner = lastPopup;
+    return lastPopup;
   },
 };
 
@@ -143,6 +180,10 @@ global.document = {
     const element = makeTestElement(tagName);
     element.namespaceURI = namespace;
     return element;
+  },
+  querySelector(selector) {
+    if (selector === 'link[rel="stylesheet"]') return { getAttribute: () => "style.css?v=test" };
+    return null;
   },
 };
 global.localStorage = {
@@ -627,6 +668,23 @@ assert.strictEqual(findAllElements(inputs.printSheet, (node) => (node.className 
 assert.strictEqual(findAllElements(inputs.printSheet, (node) => (node.className || "").split(/\s+/).includes("printSolutionBlock")).length, 1);
 printNow();
 assert.strictEqual(printCallCount, 1);
+assert.strictEqual(globalThis.lastStatusMessage, "Print requested. If no dialog opens, use Open print page or Ctrl+P.");
+popupOpenCount = 0;
+lastPopup = null;
+blockedPopup = false;
+assert.strictEqual(openPrintPage(), true);
+assert.strictEqual(popupOpenCount, 1);
+assert.ok(lastPopup.html.includes('<link rel="stylesheet" href="style.css?v=test">'));
+assert.ok(lastPopup.html.includes('class="printSheet"'));
+assert.ok(lastPopup.html.includes('class="printCardPackage"'));
+assert.ok(lastPopup.html.includes('Open') === false);
+assert.ok(lastPopup.html.includes('Print'));
+assert.strictEqual(lastPopup.focused, true);
+assert.strictEqual(globalThis.lastStatusMessage, "Print page opened. Use its Print button or Ctrl+P.");
+blockedPopup = true;
+assert.strictEqual(openPrintPage(), false);
+assert.strictEqual(globalThis.lastStatusMessage, "Popup blocked. Allow popups for this site or press Ctrl+P on the preview.");
+blockedPopup = false;
 exitPrintPreview();
 assert.ok(!body.classList.contains("printPreviewMode"));
 addCardToPrintQueue(singleTaskCard);

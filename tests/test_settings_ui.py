@@ -80,6 +80,8 @@ def test_print_sheet_container_exists():
     assert 'id="printPreviewToolbar"' in HTML
     assert 'id="printNow"' in HTML
     assert "Print now" in HTML
+    assert 'id="openPrintPage"' in HTML
+    assert "Open print page" in HTML
     assert 'id="exitPrintPreview"' in HTML
     assert "Exit print preview" in HTML
     assert '<section id="printSheet" class="printSheet" aria-hidden="true"></section>' in HTML
