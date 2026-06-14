@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Ubongo 3D Card Generator</title>
+  <link rel="stylesheet" href="style.css?v=large-piece-area-3" />
+</head>
+<body>
+<header>
+  <h1>Ubongo 3D card generator</h1>
+  <p>One 3D volume with six different piece combinations from the real Thingiverse 6534722 + 5072592 shapes.</p>
+</header>
+<main>
+  <section class="panel controls">
+    <h2>Settings</h2>
+    <div class="grid">
+      <label>Board width <input id="w" type="number" min="2" max="8" value="4"></label>
+      <label>Board height <input id="h" type="number" min="2" max="8" value="4"></label>
+      <label>Levels <input id="levels" type="number" min="1" max="4" value="2"></label>
+      <label>Pieces per variant <input id="pieceCount" type="number" min="2" max="8" value="3"></label>
+      <label>Card number <input id="cardNumber" type="number" min="1" max="99" value="1"></label>
+      <label>Target cell size
+        <select id="targetCellSize">
+          <option value="14.5" selected>14.5 mm</option>
+          <option value="13">13 mm</option>
+        </select>
+      </label>
+      <label>Variants per card
+        <input id="comboCount" type="number" min="6" max="6" value="6" disabled aria-describedby="comboCountHint">
+        <span id="comboCountHint" class="fieldHint">6 total: 3-piece cards get 2 tasks with 3 variants each; larger piece counts get 1 task with 6 variants.</span>
+      </label>
+      <label>Generation attempts <input id="attempts" type="number" min="50" max="10000" value="1200"></label>
+      <label>Seed <input id="seed" type="number" placeholder="random"></label>
+    </div>
+    <div class="buttons">
+      <button id="generate">Generate card</button>
+      <button id="togglePieceLibrary" type="button" aria-controls="pieceLibraryPanel" aria-expanded="false">Piece library</button>
+      <button id="print">Print / PDF</button>
+      <button id="exportJson">Export JSON</button>
+    </div>
+    <div class="manualLayer">
+      <label class="check"><input id="manualMode" type="checkbox"> draw shape</label>
+      <div class="manualLayerEditors">
+        <div id="manualLayerEditorA" class="manualLayerEditor"></div>
+        <div id="manualLayerEditorB" class="manualLayerEditor"></div>
+      </div>
+      <div class="buttons manualLayerButtons">
+        <button id="clearManualLayer" type="button">Clear layer</button>
+        <button id="fillManualLayer" type="button">Fill layer</button>
+      </div>
+    </div>
+    <p class="hint">The app tries to load <code>data/pieces_thingiverse_6534722.json</code> first. If the browser blocks local fetch, use the file picker below.</p>
+  </section>
+
+  <section id="pieceLibraryPanel" class="panel pieceLibraryPanel hidden">
+    <h2>Piece library</h2>
+    <p class="hint">Format: each piece is a list of integer cube coordinates. Rotations are allowed; rotational duplicates are not loaded.</p>
+    <textarea id="pieces"></textarea>
+    <div class="buttons">
+      <button id="loadPieces">Apply text library</button>
+      <label class="fileButton">Load pieces.json <input id="pieceFile" type="file" accept="application/json,.json"></label>
+      <button id="resetPieces">Use built-in Thingiverse pieces</button>
+    </div>
+    <div class="piecePresetBar" role="group" aria-label="Piece library presets">
+      <button id="presetOldThingiverse" type="button">Old Edition</button>
+      <button id="presetFamilyThingiverse" type="button">Family Edition</button>
+      <button id="presetCustomPieces" type="button">Custom</button>
+      <button id="presetAllPieces" type="button">All pieces</button>
+    </div>
+    <div class="pieceColorPanel">
+      <div class="pieceColorHeader">
+        <h3>Piece colors</h3>
+        <button id="resetPieceColors" type="button">Reset colors</button>
+      </div>
+      <div id="pieceColors" class="pieceColors"></div>
+    </div>
+  </section>
+
+  <section id="status" class="status">Loading pieces...</section>
+
+  <section id="card" class="card hidden">
+    <div class="cardHead">
+      <h2>Challenge card</h2>
+      <div id="meta"></div>
+    </div>
+    <div id="gameCardView" class="gameCardView" aria-label="Game challenge card"></div>
+    <h3>Target volume by layer</h3>
+    <div id="layers" class="layers"></div>
+    <h3 id="combosTitle">Piece combinations</h3>
+    <div id="combos" class="combos"></div>
+    <details>
+      <summary>Show solutions</summary>
+      <div id="solutions" class="solutions"></div>
+    </details>
+  </section>
+  <div id="printPreviewToolbar" class="printPreviewToolbar" aria-label="Print preview actions">
+    <button id="printNow" type="button">Print now</button>
+    <button id="exitPrintPreview" type="button">Exit print preview</button>
+  </div>
+  <section id="printSheet" class="printSheet" aria-hidden="true"></section>
+</main>
+<script src="app.js?v=large-card-1"></script>
+</body>
+</html>

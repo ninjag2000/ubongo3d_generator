@@ -1,0 +1,28 @@
+{
+  "source": "https://www.thingiverse.com/thing:6534722/files",
+  "thingId": 6534722,
+  "title": "UBONGO 3D by PegFranck",
+  "license": "Creative Commons Attribution / CC BY",
+  "verification": "Thingiverse search result metadata reports the title and CC BY license.",
+  "downloadedArchive": "source_stl/thingiverse_6534722.zip",
+  "extractedDirectory": "source_stl/thingiverse_6534722/",
+  "generatedJson": "data/pieces_thingiverse_6534722.json",
+  "stlFiles": [
+    "BLEU_5_UBONGO.stl",
+    "BLEU_6_UBONGO.stl",
+    "BLEU_7_UBONGO.stl",
+    "BLEU_8_UBONGO.stl",
+    "JAUNE_1_UBONGO.stl",
+    "JAUNE_2_UBONGO.stl",
+    "JAUNE_3_UBONGO.stl",
+    "JAUNE_4_UBONGO.stl",
+    "ROUGE_9_UBONGO.stl",
+    "ROUGE_10_UBONGO.stl",
+    "ROUGE_11_UBONGO.stl",
+    "ROUGE_12_UBONGO.stl",
+    "VERT_13_UBONGO.stl",
+    "VERT_14_UBONGO.stl",
+    "VERT_15_UBONGO.stl",
+    "VERT_16_UBONGO.stl"
+  ]
+}

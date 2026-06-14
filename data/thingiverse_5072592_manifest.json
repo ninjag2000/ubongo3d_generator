@@ -1,0 +1,49 @@
+{
+  "thingId": 5072592,
+  "name": "Ubongo 3D (family) puzzle pieces",
+  "sourceUrl": "https://www.thingiverse.com/thing:5072592",
+  "license": "Creative Commons - Attribution",
+  "creator": "derdonsimon",
+  "files": [
+    {
+      "name": "1red.STL",
+      "url": "https://cdn.thingiverse.com/assets/4c/52/7d/70/b3/1red.STL",
+      "size": 2284
+    },
+    {
+      "name": "2red.STL",
+      "url": "https://cdn.thingiverse.com/assets/34/e8/47/ec/bb/2red.STL",
+      "size": 4284
+    },
+    {
+      "name": "3green.STL",
+      "url": "https://cdn.thingiverse.com/assets/96/6c/d0/23/84/3green.STL",
+      "size": 3284
+    },
+    {
+      "name": "4green.STL",
+      "url": "https://cdn.thingiverse.com/assets/ff/9b/38/5f/c5/4green.STL",
+      "size": 4284
+    },
+    {
+      "name": "5blue.STL",
+      "url": "https://cdn.thingiverse.com/assets/3d/5d/d5/9c/8c/5blue.STL",
+      "size": 3284
+    },
+    {
+      "name": "6blue.STL",
+      "url": "https://cdn.thingiverse.com/assets/80/5e/3d/54/37/6blue.STL",
+      "size": 5284
+    },
+    {
+      "name": "7yellow.STL",
+      "url": "https://cdn.thingiverse.com/assets/5f/e6/5a/46/74/7yellow.STL",
+      "size": 4284
+    },
+    {
+      "name": "8yellow.STL",
+      "url": "https://cdn.thingiverse.com/assets/46/d9/5b/41/89/8yellow.STL",
+      "size": 5284
+    }
+  ]
+}
