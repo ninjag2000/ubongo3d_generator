@@ -100,6 +100,38 @@ def test_piece_controls_are_combined_preview_cards():
     assert "min-height: 116px;" in control
 
 
+def test_generation_status_row_and_overlay_are_styled():
+    status_row = css_block(".statusRow")
+    selection_panel = css_block(".printSelectionPanel")
+    selection_head = css_block(".printSelectionHead")
+    selection_actions = css_block(".printSelectionActions")
+    selection_count = css_block(".printSelectionCount")
+    generated_row = css_block(".generatedCardRow")
+    generated_preview = css_block(".generatedCardPreview")
+    generated_preview_card = css_block(".generatedCardPreviewCard")
+    overlay = css_block(".generationOverlay")
+    overlay_visible = css_block(".generationOverlay.visible")
+    spinner = css_block(".generationSpinner")
+
+    assert "display: flex;" in status_row
+    assert "align-items: center;" in status_row
+    assert "padding-top: 16px;" in selection_panel
+    assert "display: flex;" in selection_head
+    assert "justify-content: space-between;" in selection_head
+    assert "display: flex;" in selection_actions
+    assert "font-weight: 700;" in selection_count
+    assert "grid-template-columns: auto 96px 1fr auto;" in generated_row
+    assert "width: 96px;" in generated_preview
+    assert "height: 138px;" in generated_preview
+    assert "transform: translate(-50%, -50%) scale(.225);" in generated_preview_card
+    assert "display: none;" in overlay
+    assert "position: fixed;" in overlay
+    assert "inset: 0;" in overlay
+    assert "display: flex;" in overlay_visible
+    assert "border-top-color: #246b73;" in spinner
+    assert "@keyframes generation-spin" in CSS
+
+
 def test_solution_model_has_compact_preview_frame():
     model = css_block(".solutionModel")
     preview = css_block(".solution3dPreview")
@@ -148,6 +180,12 @@ def test_print_sheet_places_two_cards_on_a4_landscape():
     assert "gap: 3mm;" in CSS
     assert "display: grid !important;" in CSS
     assert ".printPreviewToolbar" in CSS
+    assert ".pieceLibraryPanel" in CSS
+    assert "#newSession" in CSS
+    assert ".printSelectionPanel" in CSS
+    assert ".generationOverlay" in CSS
+    assert "body.printPreviewMode main > :not(.printSheet)" in CSS
+    assert "body.printPreviewMode > :not(main)" in CSS
     assert "display: none !important;" in CSS
 
 

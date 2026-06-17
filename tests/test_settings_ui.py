@@ -43,6 +43,13 @@ def test_target_cell_size_control_offers_supported_mm_sizes():
     assert '<option value="13">13 mm</option>' in HTML
 
 
+def test_board_width_and_height_controls_are_not_rendered():
+    assert "Board width" not in HTML
+    assert "Board height" not in HTML
+    assert 'id="w"' not in HTML
+    assert 'id="h"' not in HTML
+
+
 def test_tasks_per_card_control_is_not_rendered():
     assert 'id="taskCount"' not in HTML
     assert "Tasks per card" not in HTML
@@ -79,9 +86,34 @@ def test_unique_piece_sets_control_is_not_rendered():
 def test_print_sheet_container_exists():
     assert 'id="printPreviewToolbar"' in HTML
     assert 'id="printNow"' in HTML
-    assert "Print now" in HTML
-    assert 'id="openPrintPage"' in HTML
-    assert "Open print page" in HTML
+    assert "Print" in HTML
+    assert 'id="exportPdf"' in HTML
+    assert "Export PDF" in HTML
     assert 'id="exitPrintPreview"' in HTML
     assert "Exit print preview" in HTML
     assert '<section id="printSheet" class="printSheet" aria-hidden="true"></section>' in HTML
+
+
+def test_generation_session_controls_are_rendered():
+    assert 'class="statusRow"' in HTML
+    assert 'id="newSession"' in HTML
+    assert ">New session<" in HTML
+    assert 'id="generationOverlay"' in HTML
+    assert 'id="generationOverlayText"' in HTML
+    assert "Generating a new card..." in HTML
+
+
+def test_print_selection_panel_is_rendered():
+    assert 'id="printSelectionPanel"' in HTML
+    assert "Print selection" in HTML
+    assert 'id="printSelectionCount"' in HTML
+    assert "Selected for print: 0/2" in HTML
+    assert 'class="printSelectionActions"' in HTML
+    assert 'id="print"' in HTML
+    assert ">Print / PDF<" in HTML
+    assert 'id="generatedCardsList"' in HTML
+
+
+def test_local_pdf_vendor_scripts_are_loaded():
+    assert 'src="assets/vendor/html2canvas.min.js"' in HTML
+    assert 'src="assets/vendor/jspdf.umd.min.js"' in HTML

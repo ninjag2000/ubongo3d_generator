@@ -71,9 +71,12 @@ const BUILTIN_THINGIVERSE_PIECES = [{"id":"P01","sourceFiles":["BLEU_5_UBONGO.st
 
 let pieces = structuredClone(BUILTIN_THINGIVERSE_PIECES);
 let lastCard = null;
-var printCards = [];
+var generatedCards = [];
+var selectedPrintCardIds = [];
+var generatedCardSequence = 0;
+const MAX_GENERATED_CARDS = 6;
 let activeLibrary = "thingiverse_6534722+5072592 builtin";
-var generationHistory = { targets: [], comboSets: [], volumes: [], pieceCounts: {} };
+var generationHistory = { targets: [], targetFootprints: [], comboSets: [], volumes: [], pieceCounts: {} };
 var randomSeedMode = false;
 var manualLayerCellsA = new Set();
 var manualLayerCellsB = new Set();
@@ -199,6 +202,12 @@ function comboSetSignature(combos) {
   return combos.map((combo) => pieceSetSignature(combo.pieces)).sort().join("/");
 }
 
+function taskVariantSignature(task) {
+  const target = task?.target || [];
+  const combos = task?.combos || [];
+  return `${targetFootprintCanonicalSignature(target)}|${comboSetSignature(combos)}`;
+}
+
 function cardDiversitySignature(card) {
   return `${targetCellsSignature(card.target)}|${comboSetSignature(card.combos)}`;
 }
@@ -208,7 +217,14 @@ function historyCount(items, value) {
 }
 
 function emptyGenerationHistory() {
-  return { targets: [], comboSets: [], volumes: [], pieceCounts: {} };
+  return { targets: [], targetFootprints: [], taskVariants: [], comboSets: [], volumes: [], pieceCounts: {} };
+}
+
+function resetGenerationSession() {
+  generationHistory = emptyGenerationHistory();
+  generatedCards = [];
+  selectedPrintCardIds = [];
+  renderGeneratedCardList();
 }
 
 function canonicalPiecesForCard(card) {
@@ -293,14 +309,51 @@ function selectDiverseCombos(combos, requestedCount, history, rng) {
   return selected;
 }
 
+function usedTargetFootprintSignatures(history = generationHistory) {
+  return new Set(history?.targetFootprints || []);
+}
+
+function usedTaskVariantSignatures(history = generationHistory) {
+  return new Set(history?.taskVariants || []);
+}
+
+function newUniqueTargetError() {
+  return new Error("No new unique targets left for this session. Change settings, increase attempts, or start a new session.");
+}
+
+function fullVariantRequirementText() {
+  const taskCount = selectedTaskCount();
+  const combosPerTask = combosPerTaskForTaskCount(taskCount);
+  if (taskCount === 2) return `full ${combosPerTask}/${combosPerTask} + ${combosPerTask}/${combosPerTask} variant set`;
+  return `full ${VARIANT_SLOTS_PER_CARD}/${VARIANT_SLOTS_PER_CARD} variant set`;
+}
+
+function incompleteGenerationFailureMessage() {
+  return `Could not find a ${fullVariantRequirementText()} within the current Generation attempts budget. Try Generate card again, increase attempts, or broaden the active piece set.`;
+}
+
+function generationProgressMessage() {
+  if (!currentGenerationAttempt || !currentGenerationAttemptBudget) {
+    return "Generating: searching for a board and matching piece combinations...";
+  }
+  return `Generating: trying candidate card ${currentGenerationAttempt} of ${currentGenerationAttemptBudget}...`;
+}
+
 function updateGenerationHistory(card) {
   generationHistory.targets ||= [];
+  generationHistory.targetFootprints ||= [];
+  generationHistory.taskVariants ||= [];
   generationHistory.comboSets ||= [];
   generationHistory.volumes ||= [];
   generationHistory.pieceCounts ||= {};
+  const tasks = card.tasks || [{ target: card.target, combos: card.combos }];
   const targetSignature = targetCellsSignature(card.target);
   const comboSignature = comboSetSignature(card.combos);
   generationHistory.targets.push(targetSignature);
+  for (const task of tasks) {
+    generationHistory.targetFootprints.push(targetFootprintCanonicalSignature(task.target));
+    generationHistory.taskVariants.push(taskVariantSignature(task));
+  }
   generationHistory.comboSets.push(comboSignature);
   generationHistory.volumes.push(card.target.length);
   generationHistory.targets = generationHistory.targets.slice(-16);
@@ -502,6 +555,34 @@ function selectedTaskCount() {
   return pieceCount === 3 ? 2 : 1;
 }
 
+function boardDimensionsForTaskCount(taskCount) {
+  return { w: 7, h: 5 };
+}
+
+function taskBoardDimensions(taskIndex, taskCount) {
+  if (taskCount === 2) {
+    return taskIndex === 0 ? { w: 3, h: 5 } : { w: 4, h: 5 };
+  }
+  return boardDimensionsForTaskCount(taskCount);
+}
+
+function currentBoardDimensions() {
+  return boardDimensionsForTaskCount(selectedTaskCount());
+}
+
+function currentTaskBoardDimensions(taskIndex = 0) {
+  return taskBoardDimensions(taskIndex, selectedTaskCount());
+}
+
+function boardLabelForTaskCount(taskCount) {
+  return taskCount === 2 ? "3x5 + 4x5" : "7x5";
+}
+
+function boardLabelForCard(card) {
+  const taskCount = card?.tasks?.length || 1;
+  return boardLabelForTaskCount(taskCount);
+}
+
 function combosPerTaskForTaskCount(taskCount) {
   return taskCount === 1 ? VARIANT_SLOTS_PER_CARD : COMBOS_PER_TASK;
 }
@@ -587,11 +668,13 @@ function targetFootprintCanonicalSignature(target) {
 }
 
 function twoTaskTargetsFitOnCard(tasksOrTargets) {
-  const targets = (tasksOrTargets || []).map((item) => item?.target || item).filter(Boolean);
+  const items = (tasksOrTargets || []).filter(Boolean);
+  const targets = items.map((item) => item?.target || item).filter(Boolean);
   if (targets.length < 2) return true;
   const stats = targets.slice(0, 2).map(targetFootprintStats);
-  if (stats[0].width > 4 || stats[1].width > 3) return false;
-  if (targetFootprintCanonicalSignature(targets[0]) === targetFootprintCanonicalSignature(targets[1])) return false;
+  if (stats[0].width > 3 || stats[1].width > 4) return false;
+  const sameCanonicalFootprint = targetFootprintCanonicalSignature(targets[0]) === targetFootprintCanonicalSignature(targets[1]);
+  if (sameCanonicalFootprint) return false;
   const fullRows = stats.map((item) => new Set(Object.entries(item.rowCounts).filter(([, count]) => count >= 4).map(([row]) => row)));
   return ![...fullRows[0]].some((row) => {
     const rowIndex = Number(row);
@@ -599,7 +682,11 @@ function twoTaskTargetsFitOnCard(tasksOrTargets) {
   });
 }
 
-const TWO_TASK_TARGET_COLLISION_MESSAGE = "Two task targets collide: left target must be at most 4 columns wide, right target must be at most 3 columns wide, targets cannot be identical or rotation/mirror equivalents, and 4-cell rows cannot be on the same or adjacent rows.";
+const TWO_TASK_TARGET_COLLISION_MESSAGE = "Two task targets collide: left target must be at most 3 columns wide, right target must be at most 4 columns wide, mirrored/equivalent contours cannot repeat, and 4-cell rows cannot be on the same or adjacent rows.";
+const INCOMPLETE_GENERATION_FAILURE_MESSAGE = "Could not find a full variant set within the current Generation attempts budget. Try Generate card again, increase attempts, or broaden the active piece set.";
+const SESSION_EXHAUSTED_STATUS_MESSAGE = "No new unique targets left in this session. Start a new session to generate more cards with repeats allowed across sessions.";
+var currentGenerationAttempt = null;
+var currentGenerationAttemptBudget = null;
 
 function backgroundForCardMode(pieceCount, levels) {
   if (Number(pieceCount) >= 6) {
@@ -625,7 +712,7 @@ function manualLayerTarget(w, h, levels, cellsSet = manualLayerCellsA, label = "
   const cells = [...cellsSet].map((value) => value.split(",").map(Number));
   if (!cells.length) throw new Error(`Draw at least one cell in manual layer${prefix}.`);
   if (cells.some(([x, y]) => x < 0 || x >= w || y < 0 || y >= h)) {
-    throw new Error(`Manual layer${prefix} has cells outside the current board.`);
+    throw new Error(`Manual layer${prefix} has cells outside the fixed ${w}x${h} task area.`);
   }
   if (!connected2d(cells)) throw new Error(`Manual layer${prefix} cells must be connected by sides.`);
   return extrudeSilhouette(cells, levels);
@@ -1125,8 +1212,11 @@ function loadPiecesFromText(sourceLabel = "text area") {
 }
 
 function generateSingleTask(options = {}) {
-  const w = +document.getElementById("w").value;
-  const h = +document.getElementById("h").value;
+  const taskCount = options.taskCount ?? selectedTaskCount();
+  const taskDimensions = options.w && options.h
+    ? { w: Number(options.w), h: Number(options.h) }
+    : taskBoardDimensions(options.taskIndex ?? 0, taskCount);
+  const { w, h } = taskDimensions;
   const l = +document.getElementById("levels").value;
   const pieceCount = +document.getElementById("pieceCount").value;
   const comboCount = options.requestedComboCount ?? +document.getElementById("comboCount").value;
@@ -1138,6 +1228,7 @@ function generateSingleTask(options = {}) {
   const taskLabel = options.taskIndex === undefined ? "" : String(options.taskIndex + 1);
   const maxFootprintWidth = options.maxFootprintWidth ?? Infinity;
   const excludedFootprintSignatures = new Set(options.excludedFootprintSignatures || []);
+  const usedSessionTargetFootprints = usedTargetFootprintSignatures(generationHistory);
   const workingPieces = generationPieces();
 
   const rng = mulberry32(seed);
@@ -1161,7 +1252,7 @@ function generateSingleTask(options = {}) {
   const fitRequirement = boardFitRequirement(w, h);
   const maxLayerArea = Math.max(...possibleVolumes.map((volume) => volume / l));
   if (!manualTarget && fitRequirement.required && maxLayerArea < fitRequirement.minArea) {
-    throw new Error(`No board-sized target is possible on a ${w}x${h} board with ${pieceCount} pieces. Increase pieces per variant.`);
+    throw new Error(`No target that fits the fixed ${w}x${h} task area is possible with ${pieceCount} pieces. Increase pieces per variant.`);
   }
   const volumeOrder = manualTarget ? [manualTarget.length] : targetVolumeOrder(rng, possibleVolumes);
   const presetTargets = manualTarget ? [] : volumeOrder.flatMap((volume) => shuffle(rng, presetTargetsFor(w, h, l, [volume])));
@@ -1170,8 +1261,12 @@ function generateSingleTask(options = {}) {
   const mixedTargetCandidates = manualTarget ? [{ id: "manual-layer", target: manualTarget }] : mixTargetCandidates(rng, presetTargets, generatedTargets, solutionDerivedTargets, attempts);
   const targetCandidates = mixedTargetCandidates.filter((candidate) =>
     targetFootprintStats(candidate.target).width <= maxFootprintWidth &&
-    !excludedFootprintSignatures.has(targetFootprintCanonicalSignature(candidate.target)),
+    !excludedFootprintSignatures.has(targetFootprintCanonicalSignature(candidate.target)) &&
+    (manualTarget || true),
   );
+  if (!manualTarget && !targetCandidates.length && mixedTargetCandidates.length) {
+    throw newUniqueTargetError();
+  }
   const targetMode = manualTarget ? "equal-layer" : "auto";
   let bestCard = null;
   const solvableCards = [];
@@ -1180,7 +1275,7 @@ function generateSingleTask(options = {}) {
   let checkedManualSets = 0;
   const manualTargetVolume = manualTarget ? manualTarget.length : null;
 
-  setStatus("Generating: searching for a board and matching piece combinations...");
+  setStatus(generationProgressMessage());
   const searchLimit = manualTarget
     ? Math.min(attempts, targetCandidates.length, 260)
     : Math.min(attempts, targetCandidates.length, 80);
@@ -1211,6 +1306,7 @@ function generateSingleTask(options = {}) {
     }
     if (
       combos.length > 0 &&
+      !usedSessionTargetFootprints.has(targetFootprintCanonicalSignature(cardTarget)) &&
       (
       combos.length > (bestCard?.combos.length || 0) ||
       (combos.length === (bestCard?.combos.length || 0) && cardTarget.length > (bestCard?.target.length || 0)) ||
@@ -1223,12 +1319,14 @@ function generateSingleTask(options = {}) {
       solvableCards.push({ seed, w, h, levels: l, pieceCount, target: cardTarget, combos, requestedComboCount: comboCount, incomplete: combos.length < comboCount, pieceLibrary: workingPieces, activeLibrary, targetMode });
     }
   }
-  if (solvableCards.length || (Math.min(w, h) >= 3 && plainRectangularCards.length)) {
-    const boardFitCards = solvableCards.filter(usesBoardWell);
+  const uniqueFootprintCards = solvableCards.filter((card) => !usedSessionTargetFootprints.has(targetFootprintCanonicalSignature(card.target)));
+  const uniquePlainRectangularCards = plainRectangularCards.filter((card) => !usedSessionTargetFootprints.has(targetFootprintCanonicalSignature(card.target)));
+  if (uniqueFootprintCards.length || (Math.min(w, h) >= 3 && uniquePlainRectangularCards.length)) {
+    const boardFitCards = uniqueFootprintCards.filter(usesBoardWell);
     if (!manualTarget && fitRequirement.required && !boardFitCards.length) {
-      throw new Error(`Could not find a board-sized target for ${w}x${h}. Increase pieces per variant, more attempts, or a different seed.`);
+      throw new Error(`Could not find a target that fits the fixed ${w}x${h} task area. Increase pieces per variant, more attempts, or try Generate card again.`);
     }
-    const baseCandidateCards = !manualTarget && boardFitCards.length ? boardFitCards : solvableCards;
+    const baseCandidateCards = !manualTarget && boardFitCards.length ? boardFitCards : uniqueFootprintCards;
     const uniqueByTarget = [];
     const seenTargets = new Set();
     for (const card of shuffle(rng, baseCandidateCards)) {
@@ -1246,6 +1344,9 @@ function generateSingleTask(options = {}) {
       const pool = ranked.filter((entry) => entry.score >= bestScore - 35).slice(0, 6);
       return pool[randInt(rng, pool.length)].card;
     }
+  }
+  if (!manualTarget && solvableCards.length && !uniqueFootprintCards.length) {
+    throw newUniqueTargetError();
   }
   if (bestCard) return bestCard;
   if (plainRectangularOnly) {
@@ -1266,16 +1367,18 @@ function generateCard() {
   const scoringHistory = (randomSeedMode || !seedValue) ? generationHistory : emptyGenerationHistory();
   const manualSets = [manualLayerCellsA, manualLayerCellsB];
   const taskCount = selectedTaskCount();
+  const boardDimensions = boardDimensionsForTaskCount(taskCount);
   const combosPerTask = combosPerTaskForTaskCount(taskCount);
   const manualMode = !!document.getElementById("manualMode")?.checked;
-  const w = +document.getElementById("w").value;
-  const h = +document.getElementById("h").value;
   const l = +document.getElementById("levels").value;
   const cardNumber = normalizeCardNumber(document.getElementById("cardNumber")?.value);
   const targetCellSizeMm = selectedTargetCellSize();
 
   if (taskCount === 2 && manualMode) {
-    const manualTargets = manualSets.slice(0, 2).map((cells, taskIndex) => manualLayerTarget(w, h, l, cells, String(taskIndex + 1)));
+    const manualTargets = manualSets.slice(0, 2).map((cells, taskIndex) => {
+      const dims = taskBoardDimensions(taskIndex, taskCount);
+      return manualLayerTarget(dims.w, dims.h, l, cells, String(taskIndex + 1));
+    });
     if (manualTargets.every(Boolean) && !twoTaskTargetsFitOnCard(manualTargets)) {
       throw new Error(TWO_TASK_TARGET_COLLISION_MESSAGE);
     }
@@ -1288,13 +1391,17 @@ function generateCard() {
     taskCards = [];
     const pairSeed = seed + pairAttempt * 19937;
     for (let taskIndex = 0; taskIndex < taskCount; taskIndex++) {
+      const taskDimensions = taskBoardDimensions(taskIndex, taskCount);
       taskCards.push(generateSingleTask({
         seed: pairSeed + taskIndex * 9973,
         requestedComboCount: combosPerTask,
         manualCells: manualSets[taskIndex],
         taskIndex,
+        taskCount,
         scoringHistory,
-        maxFootprintWidth: taskIndex === 0 ? 4 : 3,
+        w: taskDimensions.w,
+        h: taskDimensions.h,
+        maxFootprintWidth: taskDimensions.w,
         excludedFootprintSignatures: taskCards.map((task) => targetFootprintCanonicalSignature(task.target)),
       }));
     }
@@ -1310,10 +1417,14 @@ function generateCard() {
     targetMode: task.targetMode,
     requestedComboCount: combosPerTask,
     incomplete: task.combos.length < combosPerTask,
+    w: task.w,
+    h: task.h,
   }));
   const firstTask = tasks[0];
   const card = {
     ...taskCards[0],
+    w: boardDimensions.w,
+    h: boardDimensions.h,
     target: firstTask.target,
     combos: firstTask.combos,
     requestedComboCount: taskCount * combosPerTask,
@@ -1327,34 +1438,45 @@ function generateCard() {
 }
 
 function isRetryableGenerationError(error) {
-  return /Only plain rectangular targets|Could not find enough combinations|Could not find compatible two-task targets/.test(error.message);
+  return /Only plain rectangular targets|Could not find enough combinations|Could not find compatible two-task targets|No new unique targets left/.test(error.message);
 }
 
-function generateCardWithRetries(maxRetries = 8) {
+function generateCardWithRetries(outerAttemptsOverride = null) {
   const seedInput = document.getElementById("seed");
+  const attemptsInput = document.getElementById("attempts");
   const originalSeed = seedInput.value;
   const baseSeed = originalSeed ? +originalSeed : randomSeed();
   const originalRandomSeedMode = randomSeedMode;
+  const outerAttemptBudget = Math.max(1, outerAttemptsOverride ?? (+attemptsInput.value || 1));
   let lastError = null;
+  let sawIncompleteCard = false;
 
-  for (let retry = 0; retry <= maxRetries; retry++) {
+  currentGenerationAttemptBudget = outerAttemptBudget;
+  for (let retry = 0; retry < outerAttemptBudget; retry++) {
+    currentGenerationAttempt = retry + 1;
+    updateGenerationOverlayText(generationProgressMessage());
     seedInput.value = String(baseSeed + retry * 9973);
     try {
       randomSeedMode = !originalSeed;
       const card = generateCard();
       if (card.incomplete) {
-        lastError = new Error("Could not find enough variants for this target. Retrying with a different field.");
+        sawIncompleteCard = true;
+        lastError = new Error(incompleteGenerationFailureMessage());
         continue;
       }
       card.retryCount = retry;
       if (!originalSeed) seedInput.value = "";
       randomSeedMode = originalRandomSeedMode;
+      currentGenerationAttempt = null;
+      currentGenerationAttemptBudget = null;
       return card;
     } catch (error) {
       lastError = error;
       if (!isRetryableGenerationError(error)) {
         seedInput.value = originalSeed;
         randomSeedMode = originalRandomSeedMode;
+        currentGenerationAttempt = null;
+        currentGenerationAttemptBudget = null;
         throw error;
       }
     }
@@ -1362,11 +1484,51 @@ function generateCardWithRetries(maxRetries = 8) {
 
   seedInput.value = originalSeed;
   randomSeedMode = originalRandomSeedMode;
-  throw lastError;
+  currentGenerationAttempt = null;
+  currentGenerationAttemptBudget = null;
+  throw sawIncompleteCard ? new Error(incompleteGenerationFailureMessage()) : lastError;
 }
 
 function setStatus(message) {
   document.getElementById("status").textContent = message;
+}
+
+function showNewSessionAction() {
+  document.getElementById("newSession")?.classList.remove("hidden");
+}
+
+function hideNewSessionAction() {
+  document.getElementById("newSession")?.classList.add("hidden");
+}
+
+function showGenerationOverlay(message = "Generating a new card...") {
+  const overlay = document.getElementById("generationOverlay");
+  const text = document.getElementById("generationOverlayText");
+  if (text) text.textContent = message;
+  if (overlay) {
+    void overlay.offsetHeight;
+    document.body.classList.add("isGenerating");
+    overlay.classList.add("visible");
+    overlay.setAttribute("aria-hidden", "false");
+  }
+}
+
+function updateGenerationOverlayText(message) {
+  const text = document.getElementById("generationOverlayText");
+  if (text) text.textContent = message;
+}
+
+function hideGenerationOverlay() {
+  const overlay = document.getElementById("generationOverlay");
+  document.body.classList.remove("isGenerating");
+  if (overlay) {
+    overlay.classList.remove("visible");
+    overlay.setAttribute("aria-hidden", "true");
+  }
+}
+
+function isSessionExhaustedError(error) {
+  return /No new unique targets left/.test(error?.message || "");
 }
 
 function loadPieceColors() {
@@ -1876,9 +2038,103 @@ function renderGameCardView(card) {
   populateGameCardView(view, card);
 }
 
-function addCardToPrintQueue(card) {
-  printCards.push(card);
-  if (printCards.length > 2) printCards.shift();
+function ensureGeneratedCardId(card) {
+  const duplicatedId = card.sessionCardId && generatedCards.some((existingCard) => existingCard !== card && existingCard.sessionCardId === card.sessionCardId);
+  if (!card.sessionCardId || duplicatedId) {
+    generatedCardSequence += 1;
+    card.sessionCardId = `generated-card-${generatedCardSequence}`;
+  }
+  return card.sessionCardId;
+}
+
+function selectedPrintCards() {
+  const cardsById = new Map(generatedCards.map((card) => [card.sessionCardId, card]));
+  return selectedPrintCardIds.map((id) => cardsById.get(id)).filter(Boolean);
+}
+
+function updatePrintSelectionCount() {
+  const count = document.getElementById("printSelectionCount");
+  if (count) count.textContent = `Selected for print: ${selectedPrintCardIds.length}/2`;
+}
+
+function renderGeneratedCardList() {
+  const panel = document.getElementById("printSelectionPanel");
+  const list = document.getElementById("generatedCardsList");
+  if (!panel || !list) return;
+  panel.classList.toggle("hidden", generatedCards.length === 0);
+  updatePrintSelectionCount();
+  list.innerHTML = "";
+  [...generatedCards].reverse().forEach((card) => {
+    const selected = selectedPrintCardIds.includes(card.sessionCardId);
+    const cardPieceCount = card.pieceCount || card.combos?.[0]?.pieces?.length || card.tasks?.[0]?.combos?.[0]?.pieces?.length || 0;
+    const row = document.createElement("label");
+    row.className = `generatedCardRow${selected ? " selected" : ""}`;
+    row.setAttribute("data-card-id", card.sessionCardId);
+
+    const toggle = document.createElement("input");
+    toggle.type = "checkbox";
+    toggle.className = "generatedCardToggle";
+    toggle.checked = selected;
+    toggle.onchange = () => togglePrintCardSelection(card.sessionCardId);
+
+    const info = document.createElement("div");
+    info.className = "generatedCardInfo";
+
+    const preview = document.createElement("div");
+    preview.className = "generatedCardPreview";
+    const previewCard = createGameCardView(card);
+    previewCard.classList.add("generatedCardPreviewCard");
+    preview.appendChild(previewCard);
+
+    const code = document.createElement("div");
+    code.className = "generatedCardCode";
+    code.textContent = card.challengeCode || challengeCodeForCard(card);
+
+    const meta = document.createElement("div");
+    meta.className = "generatedCardMeta";
+    meta.textContent = `seed ${card.seed} | ${cardPieceCount} pieces x ${card.levels} levels | ${boardLabelForCard(card)}`;
+
+    const tag = document.createElement("div");
+    tag.className = "generatedCardTag";
+    tag.textContent = selected ? "Selected for print" : "";
+
+    info.appendChild(code);
+    info.appendChild(meta);
+    row.appendChild(toggle);
+    row.appendChild(preview);
+    row.appendChild(info);
+    row.appendChild(tag);
+    list.appendChild(row);
+  });
+}
+
+function addGeneratedCard(card) {
+  ensureGeneratedCardId(card);
+  generatedCards.push(card);
+  while (generatedCards.length > MAX_GENERATED_CARDS) {
+    const removed = generatedCards.shift();
+    if (removed?.sessionCardId) {
+      selectedPrintCardIds = selectedPrintCardIds.filter((id) => id !== removed.sessionCardId);
+    }
+  }
+  selectPrintCard(card.sessionCardId);
+}
+
+function selectPrintCard(cardId) {
+  selectedPrintCardIds = selectedPrintCardIds.filter((id) => id !== cardId);
+  selectedPrintCardIds.push(cardId);
+  while (selectedPrintCardIds.length > 2) selectedPrintCardIds.shift();
+  renderGeneratedCardList();
+}
+
+function togglePrintCardSelection(cardId) {
+  if (selectedPrintCardIds.includes(cardId)) {
+    selectedPrintCardIds = selectedPrintCardIds.filter((id) => id !== cardId);
+  } else {
+    selectedPrintCardIds.push(cardId);
+    while (selectedPrintCardIds.length > 2) selectedPrintCardIds.shift();
+  }
+  renderGeneratedCardList();
 }
 
 function cardTasks(card) {
@@ -1920,10 +2176,10 @@ function createPrintSolutionBlock(card) {
   return block;
 }
 
-function renderPrintSheet(cards = printCards) {
+function renderPrintSheet(cards = selectedPrintCards()) {
   const sheet = document.getElementById("printSheet");
   if (!sheet) return;
-  const printableCards = cards.slice(-2);
+  const printableCards = cards.slice(0, 2);
   sheet.innerHTML = "";
   sheet.setAttribute("data-card-count", String(printableCards.length));
   printableCards.forEach((card, index) => {
@@ -1941,30 +2197,104 @@ function renderPrintSheet(cards = printCards) {
 }
 
 function printReadyCards() {
-  if (printCards.length < 1) {
-    setStatus("Generate a card before printing.");
+  const cards = selectedPrintCards();
+  if (cards.length < 1) {
+    setStatus("Select at least one generated card for printing.");
     document.getElementById("status")?.scrollIntoView?.({ block: "center", behavior: "smooth" });
     return false;
   }
-  renderPrintSheet();
-  const cardCount = Math.min(printCards.length, 2);
+  renderPrintSheet(cards);
+  const cardCount = cards.length;
   document.body.classList.add("printPreviewMode");
-  setStatus(`Print preview ready for ${cardCount} ${cardCount === 1 ? "card" : "cards"}. Press Print now or Ctrl+P.`);
+  setStatus(`Print preview ready for ${cardCount} ${cardCount === 1 ? "card" : "cards"}. Press Print or Export PDF.`);
   document.getElementById("printSheet")?.scrollIntoView?.({ block: "start", behavior: "smooth" });
   void document.getElementById("printSheet")?.offsetHeight;
   return true;
 }
 
 function printNow() {
-  void document.getElementById("printSheet")?.offsetHeight;
-  window.print();
-  setStatus("Print requested. If no dialog opens, use Open print page or Ctrl+P.");
-}
-
-function openPrintPage() {
   const sheet = document.getElementById("printSheet");
   if (!sheet || !sheet.children.length) {
-    setStatus("Generate a card before printing.");
+    setStatus("Select at least one generated card for printing.");
+    return false;
+  }
+  window.print();
+  setStatus("Print requested from the current preview. If no dialog opens in this browser, use Chrome or Ctrl+P.");
+  return true;
+}
+
+async function downloadPrintSheetPdf(cards = selectedPrintCards()) {
+  const printableCards = cards.slice(0, 2);
+  if (!printableCards.length) {
+    setStatus("Select at least one generated card for printing.");
+    return false;
+  }
+  if (typeof html2canvas !== "function" || !globalThis.jspdf?.jsPDF) {
+    setStatus("PDF export is unavailable because the local PDF libraries did not load.");
+    return false;
+  }
+
+  renderPrintSheet(cards);
+  const sheet = document.getElementById("printSheet");
+  if (!sheet) {
+    setStatus("PDF export is unavailable because the print sheet is missing.");
+    return false;
+  }
+
+  showGenerationOverlay("Preparing PDF...");
+  try {
+    await nextFrame();
+    await nextFrame();
+    const canvas = await html2canvas(sheet, {
+      backgroundColor: "#ffffff",
+      scale: 2,
+      useCORS: true,
+    });
+    const imageData = canvas.toDataURL("image/png");
+    const pdf = new globalThis.jspdf.jsPDF({
+      orientation: "landscape",
+      unit: "mm",
+      format: "a4",
+      compress: true,
+    });
+    pdf.addImage(imageData, "PNG", 0, 0, 297, 210, undefined, "FAST");
+    if (typeof pdf.output === "function" && globalThis.URL?.createObjectURL) {
+      const pdfBlob = pdf.output("blob");
+      const pdfUrl = globalThis.URL.createObjectURL(pdfBlob);
+      const downloadLink = document.createElement("a");
+      downloadLink.href = pdfUrl;
+      downloadLink.download = "ubongo3d-cards.pdf";
+      downloadLink.rel = "noopener";
+      downloadLink.style.display = "none";
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      downloadLink.remove();
+      const popup = window.open(pdfUrl, "_blank");
+      setTimeout(() => globalThis.URL.revokeObjectURL(pdfUrl), 60_000);
+      setStatus(popup
+        ? "PDF ready. If the download did not start, save it from the opened PDF tab."
+        : "PDF ready. If the download did not start, allow popups or try in Chrome.");
+    } else {
+      pdf.save("ubongo3d-cards.pdf");
+      setStatus("PDF downloaded.");
+    }
+    return true;
+  } catch (error) {
+    setStatus(`Error: ${error.message}`);
+    return false;
+  } finally {
+    hideGenerationOverlay();
+  }
+}
+
+async function exportPdf() {
+  return downloadPrintSheetPdf();
+}
+
+function openPrintPage(mode = "print") {
+  const sheet = document.getElementById("printSheet");
+  if (!sheet || !sheet.children.length) {
+    setStatus("Select at least one generated card for printing.");
     return false;
   }
   const popup = window.open("", "_blank");
@@ -1974,6 +2304,8 @@ function openPrintPage() {
   }
   const stylesheetHref = document.querySelector('link[rel="stylesheet"]')?.getAttribute("href") || "style.css";
   const title = "Ubongo 3D print sheet";
+  const primaryAction = "Print";
+  const helperText = "Choose your printer in the print dialog.";
   const html = `<!doctype html>
 <html lang="en">
 <head>
@@ -1984,9 +2316,14 @@ function openPrintPage() {
   <style>
     .standalonePrintToolbar {
       display: flex;
+      align-items: center;
       gap: 10px;
       justify-content: center;
       margin: 16px 0;
+    }
+    .standalonePrintHint {
+      font: 13px system-ui, sans-serif;
+      color: #334155;
     }
     @media print {
       .standalonePrintToolbar {
@@ -1997,8 +2334,9 @@ function openPrintPage() {
 </head>
 <body class="printPreviewMode">
   <div class="standalonePrintToolbar">
-    <button type="button" onclick="window.print()">Print</button>
+    <button type="button" onclick="window.print()">${primaryAction}</button>
     <button type="button" onclick="window.close()">Close</button>
+    <span class="standalonePrintHint">${helperText}</span>
   </div>
   ${sheet.outerHTML}
 </body>
@@ -2029,18 +2367,20 @@ function renderCard(card, options = {}) {
     ? ` | ${[...new Set(tasks.map((task) => task.targetMode).filter(Boolean))].join("+")}`
     : "";
   const volumeText = tasks.length > 1 ? `volumes ${tasks.map((task) => task.target.length).join("+")}` : `volume ${card.target.length}`;
-  document.getElementById("meta").textContent = `seed ${card.seed} | ${card.w}x${card.h} | ${card.levels} levels | ${volumeText}${modeText} | ${card.activeLibrary}`;
+  document.getElementById("meta").textContent = `seed ${card.seed} | ${boardLabelForCard(card)} | ${card.levels} levels | ${volumeText}${modeText} | ${card.activeLibrary}`;
   renderGameCardView(card);
 
   const layers = document.getElementById("layers");
   layers.innerHTML = "";
   tasks.forEach((task, taskIndex) => {
     for (let z = 0; z < card.levels; z++) {
+      const taskWidth = task.w ?? card.w;
+      const taskHeight = task.h ?? card.h;
       const wrap = document.createElement("div");
       wrap.className = "layer";
       wrap.setAttribute("data-task-index", String(taskIndex));
       wrap.innerHTML = `<h4>Task ${taskIndex + 1} layer ${z + 1}</h4>`;
-      drawBoard(wrap, task.target, card.w, card.h, z);
+      drawBoard(wrap, task.target, taskWidth, taskHeight, z);
       layers.appendChild(wrap);
     }
   });
@@ -2081,17 +2421,19 @@ function renderCard(card, options = {}) {
     drawSolution3d(model, combo.solution);
     div.appendChild(model);
     for (let z = 0; z < card.levels; z++) {
+      const taskWidth = task.w ?? card.w;
+      const taskHeight = task.h ?? card.h;
       const layer = document.createElement("div");
       layer.className = "layer";
       layer.innerHTML = `<h4>Layer ${z + 1}</h4>`;
       const board = document.createElement("div");
       board.className = "board";
-      board.style.gridTemplateColumns = `repeat(${card.w}, 28px)`;
+      board.style.gridTemplateColumns = `repeat(${taskWidth}, 28px)`;
       board.style.setProperty("--cell-size", "28px");
       const labelByCell = {};
       combo.solution.forEach((placement) => placement.cubes.forEach((cell) => (labelByCell[key(cell)] = placement.id)));
-      for (let y = 0; y < card.h; y++) {
-        for (let x = 0; x < card.w; x++) {
+      for (let y = 0; y < taskHeight; y++) {
+        for (let x = 0; x < taskWidth; x++) {
           const cell = document.createElement("div");
           cell.className = "cell";
           const id = labelByCell[key([x, y, z])];
@@ -2124,11 +2466,9 @@ function clearCard() {
   document.getElementById("combosTitle").textContent = "Piece combinations";
 }
 
-function renderManualLayerEditorFor(editorId, cellsSet) {
+function renderManualLayerEditorFor(editorId, cellsSet, w, h) {
   const editor = document.getElementById(editorId);
   if (!editor) return;
-  const w = +document.getElementById("w").value;
-  const h = +document.getElementById("h").value;
   const manualEnabled = !!document.getElementById("manualMode")?.checked;
   for (const cell of [...cellsSet]) {
     const [x, y] = cell.split(",").map(Number);
@@ -2159,10 +2499,12 @@ function renderManualLayerEditorFor(editorId, cellsSet) {
 
 function renderManualLayerEditor() {
   const taskCount = selectedTaskCount();
-  renderManualLayerEditorFor("manualLayerEditorA", manualLayerCellsA);
+  const dimsA = taskBoardDimensions(0, taskCount);
+  renderManualLayerEditorFor("manualLayerEditorA", manualLayerCellsA, dimsA.w, dimsA.h);
   const editorB = document.getElementById("manualLayerEditorB");
   if (taskCount > 1) {
-    renderManualLayerEditorFor("manualLayerEditorB", manualLayerCellsB);
+    const dimsB = taskBoardDimensions(1, taskCount);
+    renderManualLayerEditorFor("manualLayerEditorB", manualLayerCellsB, dimsB.w, dimsB.h);
     if (editorB) editorB.classList.remove("hidden");
   } else if (editorB) {
     editorB.classList.add("hidden");
@@ -2233,6 +2575,52 @@ function renderPieceColorControls() {
   }
 }
 
+function nextFrame() {
+  return new Promise((resolve) => {
+    if (typeof requestAnimationFrame === "function") requestAnimationFrame(() => resolve());
+    else setTimeout(resolve, 0);
+  });
+}
+
+async function handleGenerateCard() {
+  const generateButton = document.getElementById("generate");
+  try {
+    hideNewSessionAction();
+    generateButton.disabled = true;
+    setStatus("Generating: searching for a new unique card...");
+    showGenerationOverlay();
+    await nextFrame();
+    await nextFrame();
+    loadPiecesFromText(activeLibrary);
+    clearCard();
+    const card = generateCardWithRetries();
+    renderCard(card);
+    addGeneratedCard(card);
+    incrementCardNumberInput();
+    const retryText = card.retryCount ? ` after ${card.retryCount + 1} candidate card attempts` : "";
+    const taskSummary = card.tasks ? ` Tasks: ${card.tasks.map((task, index) => `${index + 1}: ${task.target.length} cubes, ${task.combos.length}/${task.requestedComboCount} variants`).join("; ")}.` : "";
+    const printSummary = ` Print set: ${selectedPrintCardIds.length}/2 cards selected.`;
+    if (card.incomplete) {
+      setStatus(`Generated the best available card${retryText}.${taskSummary}${printSummary} At least one target has fewer than its requested variants with the current settings.`);
+    } else {
+      setStatus(`Done: card generated${retryText}.${taskSummary}${printSummary}`);
+    }
+    return card;
+  } catch (error) {
+    clearCard();
+    if (isSessionExhaustedError(error)) {
+      showNewSessionAction();
+      setStatus(SESSION_EXHAUSTED_STATUS_MESSAGE);
+    } else {
+      setStatus(`Error: ${error.message}`);
+    }
+    return null;
+  } finally {
+    hideGenerationOverlay();
+    generateButton.disabled = false;
+  }
+}
+
 document.getElementById("loadPieces").onclick = () => {
   try {
     loadPiecesFromText();
@@ -2289,8 +2677,6 @@ document.getElementById("togglePieceLibrary").onclick = () => {
   button.setAttribute("aria-expanded", String(shouldOpen));
 };
 
-document.getElementById("w").onchange = renderManualLayerEditor;
-document.getElementById("h").onchange = renderManualLayerEditor;
 document.getElementById("pieceCount").onchange = renderManualLayerEditor;
 document.getElementById("manualMode").onchange = renderManualLayerEditor;
 
@@ -2304,55 +2690,35 @@ document.getElementById("fillManualLayer").onclick = () => {
   const taskCount = selectedTaskCount();
   manualLayerCellsA.clear();
   manualLayerCellsB.clear();
-  const w = +document.getElementById("w").value;
-  const h = +document.getElementById("h").value;
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
+  const dimsA = taskBoardDimensions(0, taskCount);
+  for (let y = 0; y < dimsA.h; y++) {
+    for (let x = 0; x < dimsA.w; x++) {
       manualLayerCellsA.add(`${x},${y}`);
-      if (taskCount > 1) manualLayerCellsB.add(`${x},${y}`);
+    }
+  }
+  if (taskCount > 1) {
+    const dimsB = taskBoardDimensions(1, taskCount);
+    for (let y = 0; y < dimsB.h; y++) {
+      for (let x = 0; x < dimsB.w; x++) {
+        manualLayerCellsB.add(`${x},${y}`);
+      }
     }
   }
   renderManualLayerEditor();
 };
 
-document.getElementById("generate").onclick = () => {
-  try {
-    loadPiecesFromText(activeLibrary);
-    clearCard();
-    const card = generateCardWithRetries();
-    renderCard(card);
-    addCardToPrintQueue(card);
-    incrementCardNumberInput();
-    const retryText = card.retryCount ? ` after ${card.retryCount + 1} silhouette attempts` : "";
-    const taskSummary = card.tasks ? ` Tasks: ${card.tasks.map((task, index) => `${index + 1}: ${task.target.length} cubes, ${task.combos.length}/${task.requestedComboCount} variants`).join("; ")}.` : "";
-    const printSummary = ` Print set: ${printCards.length}/2 cards.`;
-    if (card.incomplete) {
-      setStatus(`Generated the best available card${retryText}.${taskSummary}${printSummary} At least one target has fewer than its requested variants with the current settings.`);
-    } else {
-      setStatus(`Done: card generated${retryText}.${taskSummary}${printSummary}`);
-    }
-  } catch (error) {
-    clearCard();
-    setStatus(`Error: ${error.message}`);
-  }
+document.getElementById("generate").onclick = handleGenerateCard;
+document.getElementById("newSession").onclick = () => {
+  resetGenerationSession();
+  hideNewSessionAction();
+  setStatus("New session started. Generate a new card.");
 };
 
 document.getElementById("print").onclick = printReadyCards;
 document.getElementById("printNow").onclick = printNow;
-document.getElementById("openPrintPage").onclick = openPrintPage;
+document.getElementById("exportPdf").onclick = exportPdf;
 document.getElementById("exitPrintPreview").onclick = exitPrintPreview;
 
-document.getElementById("exportJson").onclick = () => {
-  if (!lastCard) {
-    setStatus("Generate a card first.");
-    return;
-  }
-  const blob = new Blob([JSON.stringify(lastCard, null, 2)], { type: "application/json" });
-  const link = document.createElement("a");
-  link.href = URL.createObjectURL(blob);
-  link.download = "ubongo3d-card.json";
-  link.click();
-};
-
 renderManualLayerEditor();
+renderGeneratedCardList();
 loadDefaultPieces();

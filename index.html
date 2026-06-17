@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Ubongo 3D Card Generator</title>
-  <link rel="stylesheet" href="style.css?v=large-piece-area-3" />
+  <link rel="stylesheet" href="style.css?v=fixed-board-5" />
 </head>
 <body>
 <header>
@@ -15,8 +15,6 @@
   <section class="panel controls">
     <h2>Settings</h2>
     <div class="grid">
-      <label>Board width <input id="w" type="number" min="2" max="8" value="4"></label>
-      <label>Board height <input id="h" type="number" min="2" max="8" value="4"></label>
       <label>Levels <input id="levels" type="number" min="1" max="4" value="2"></label>
       <label>Pieces per variant <input id="pieceCount" type="number" min="2" max="8" value="3"></label>
       <label>Card number <input id="cardNumber" type="number" min="1" max="99" value="1"></label>
@@ -36,8 +34,6 @@
     <div class="buttons">
       <button id="generate">Generate card</button>
       <button id="togglePieceLibrary" type="button" aria-controls="pieceLibraryPanel" aria-expanded="false">Piece library</button>
-      <button id="print">Print / PDF</button>
-      <button id="exportJson">Export JSON</button>
     </div>
     <div class="manualLayer">
       <label class="check"><input id="manualMode" type="checkbox"> draw shape</label>
@@ -77,7 +73,21 @@
     </div>
   </section>
 
-  <section id="status" class="status">Loading pieces...</section>
+  <div class="statusRow">
+    <section id="status" class="status">Loading pieces...</section>
+    <button id="newSession" class="hidden" type="button">New session</button>
+  </div>
+
+  <section id="printSelectionPanel" class="panel printSelectionPanel hidden">
+    <div class="printSelectionHead">
+      <h2>Print selection</h2>
+      <div class="printSelectionActions">
+        <div id="printSelectionCount" class="printSelectionCount">Selected for print: 0/2</div>
+        <button id="print" type="button">Print / PDF</button>
+      </div>
+    </div>
+    <div id="generatedCardsList" class="generatedCardsList"></div>
+  </section>
 
   <section id="card" class="card hidden">
     <div class="cardHead">
@@ -95,12 +105,20 @@
     </details>
   </section>
   <div id="printPreviewToolbar" class="printPreviewToolbar" aria-label="Print preview actions">
-    <button id="printNow" type="button">Print now</button>
-    <button id="openPrintPage" type="button">Open print page</button>
+    <button id="printNow" type="button">Print</button>
+    <button id="exportPdf" type="button">Export PDF</button>
     <button id="exitPrintPreview" type="button">Exit print preview</button>
   </div>
   <section id="printSheet" class="printSheet" aria-hidden="true"></section>
+  <div id="generationOverlay" class="generationOverlay" aria-hidden="true">
+    <div class="generationOverlayCard" role="status" aria-live="polite">
+      <div class="generationSpinner" aria-hidden="true"></div>
+      <div id="generationOverlayText" class="generationOverlayText">Generating a new card...</div>
+    </div>
+  </div>
 </main>
-<script src="app.js?v=print-page-fallback-1"></script>
+<script src="assets/vendor/html2canvas.min.js"></script>
+<script src="assets/vendor/jspdf.umd.min.js"></script>
+<script src="app.js?v=fixed-board-3"></script>
 </body>
 </html>

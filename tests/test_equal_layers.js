@@ -3,7 +3,7 @@ const fs = require("fs");
 
 let code = fs.readFileSync("app.js", "utf8");
 assert.ok(!code.includes('document.getElementById("uniqueSets")'));
-code = code.split('document.getElementById("loadPieces").onclick')[0] + "function setStatus(message) { globalThis.lastStatusMessage = message; }";
+code = code.split("loadDefaultPieces();")[0] + "function setStatus(message) { globalThis.lastStatusMessage = message; document.getElementById('status').textContent = message; }";
 
 const inputs = {
   w: { value: "4" },
@@ -15,6 +15,15 @@ const inputs = {
   comboCount: { value: "6" },
   attempts: { value: "1200" },
   seed: { value: "12345" },
+  pieces: { value: "" },
+  status: makeTestElement("section"),
+  generate: Object.assign(makeTestElement("button"), { disabled: false }),
+  newSession: Object.assign(makeTestElement("button"), { className: "hidden" }),
+  generationOverlay: Object.assign(makeTestElement("div"), { className: "generationOverlay", attributes: { "aria-hidden": "true" } }),
+  generationOverlayText: makeTestElement("div"),
+  printSelectionPanel: Object.assign(makeTestElement("section"), { className: "panel printSelectionPanel hidden" }),
+  printSelectionCount: makeTestElement("div"),
+  generatedCardsList: makeTestElement("div"),
   manualMode: { checked: false },
   manualLayerEditorA: makeTestElement("div"),
   manualLayerEditorB: makeTestElement("div"),
@@ -43,10 +52,22 @@ function makeTestElement(tagName = "div") {
     type: "",
     onchange: null,
     onclick: null,
+    click() {
+      if (element.tagName === "A") {
+        clickedDownloadHref = element.href || element.attributes.href || null;
+        clickedDownloadName = element.download || element.attributes.download || null;
+      }
+      if (typeof element.onclick === "function") element.onclick();
+    },
     appendChild(child) {
       this.children.push(child);
       child.parentNode = this;
       return child;
+    },
+    remove() {
+      if (!element.parentNode) return;
+      element.parentNode.children = element.parentNode.children.filter((child) => child !== element);
+      element.parentNode = null;
     },
     setAttribute(name, value) {
       this.attributes[name] = String(value);
@@ -138,6 +159,13 @@ let printCallCount = 0;
 let popupOpenCount = 0;
 let lastPopup = null;
 let blockedPopup = false;
+let html2canvasCallCount = 0;
+let lastHtml2canvasTarget = null;
+let savedPdfFilename = null;
+let savedPdfImages = [];
+let savedPdfOutputMode = null;
+let clickedDownloadHref = null;
+let clickedDownloadName = null;
 global.window = {
   print() {
     printCallCount++;
@@ -166,6 +194,39 @@ global.window = {
     lastPopup.document.owner = lastPopup;
     return lastPopup;
   },
+};
+global.html2canvas = async (target, options = {}) => {
+  html2canvasCallCount++;
+  lastHtml2canvasTarget = target;
+  globalThis.lastHtml2canvasOptions = options;
+  return {
+    toDataURL() {
+      return "data:image/png;base64,TEST";
+    },
+  };
+};
+global.jspdf = {
+  jsPDF: class {
+    constructor(options) {
+      this.options = options;
+    }
+    addImage(...args) {
+      savedPdfImages.push(args);
+    }
+    output(mode) {
+      savedPdfOutputMode = mode;
+      return { type: "application/pdf" };
+    }
+    save(filename) {
+      savedPdfFilename = filename;
+    }
+  },
+};
+global.URL = {
+  createObjectURL() {
+    return "blob:ubongo-test-pdf";
+  },
+  revokeObjectURL() {},
 };
 
 global.document = {
@@ -198,9 +259,14 @@ global.localStorage = {
     delete this.store[key];
   },
 };
+global.requestAnimationFrame = (callback) => {
+  callback();
+  return 1;
+};
 
 eval(code);
 pieces = JSON.parse(fs.readFileSync("data/pieces_thingiverse_6534722.json", "utf8"));
+inputs.pieces.value = JSON.stringify(pieces);
 
 function layerSignature(cells, z) {
   return cells
@@ -393,6 +459,13 @@ assert.strictEqual(selectedTargetCellSize(), 14.5);
 inputs.targetCellSize.value = "13";
 assert.strictEqual(selectedTargetCellSize(), 13);
 inputs.targetCellSize.value = "14.5";
+assert.deepStrictEqual(boardDimensionsForTaskCount(1), { w: 7, h: 5 });
+assert.deepStrictEqual(boardDimensionsForTaskCount(2), { w: 7, h: 5 });
+assert.deepStrictEqual(taskBoardDimensions(0, 1), { w: 7, h: 5 });
+assert.deepStrictEqual(taskBoardDimensions(0, 2), { w: 3, h: 5 });
+assert.deepStrictEqual(taskBoardDimensions(1, 2), { w: 4, h: 5 });
+assert.strictEqual(boardLabelForTaskCount(1), "7x5");
+assert.strictEqual(boardLabelForTaskCount(2), "3x5 + 4x5");
 const footprintStats = targetFootprintStats(extrudeSilhouette([[2, 3], [3, 3], [5, 4]], 2));
 assert.strictEqual(footprintStats.width, 4);
 assert.strictEqual(footprintStats.height, 2);
@@ -406,17 +479,19 @@ const fullNormalizedTopRowTarget = extrudeSilhouette([[0, 2], [1, 2], [2, 2], [3
 const tooWideTarget = extrudeSilhouette([[0, 0], [1, 0], [2, 0], [3, 0], [4, 0]], 2);
 const fourWideRightTarget = extrudeSilhouette([[0, 0], [1, 0], [2, 0], [3, 0], [3, 1]], 2);
 const threeWideRightTarget = extrudeSilhouette([[0, 0], [1, 0], [2, 0], [2, 1]], 2);
+const threeWideLeftTarget = extrudeSilhouette([[0, 0], [1, 0], [2, 0], [1, 1]], 2);
 const lShapeTarget = extrudeSilhouette([[0, 0], [1, 0], [0, 1]], 2);
 const mirroredRotatedLShapeTarget = extrudeSilhouette([[0, 0], [1, 0], [1, 1]], 2);
-assert.ok(!twoTaskTargetsFitOnCard([{ target: fullTopRowTarget }, { target: fullSecondRowTarget }]));
-assert.ok(twoTaskTargetsFitOnCard([{ target: fullTopRowTarget }, { target: narrowThirdRowTarget }]));
 assert.ok(!twoTaskTargetsFitOnCard([{ target: tooWideTarget }, { target: fullSecondRowTarget }]));
-assert.ok(!twoTaskTargetsFitOnCard([{ target: fullTopRowTarget }, { target: fourWideRightTarget }]));
-assert.ok(twoTaskTargetsFitOnCard([{ target: fullTopRowTarget }, { target: threeWideRightTarget }]));
+assert.ok(!twoTaskTargetsFitOnCard([{ target: threeWideLeftTarget }, { target: tooWideTarget }]));
+assert.ok(twoTaskTargetsFitOnCard([{ target: threeWideLeftTarget }, { target: fourWideRightTarget }]));
+assert.ok(!twoTaskTargetsFitOnCard([{ target: fourWideRightTarget }, { target: threeWideRightTarget }]));
 assert.ok(!twoTaskTargetsFitOnCard([{ target: threeWideRightTarget }, { target: threeWideRightTarget }]));
-assert.ok(!twoTaskTargetsFitOnCard([{ target: fullTopRowTarget }, { target: fullNormalizedTopRowTarget }]));
 assert.strictEqual(targetFootprintCanonicalSignature(lShapeTarget), targetFootprintCanonicalSignature(mirroredRotatedLShapeTarget));
-assert.ok(!twoTaskTargetsFitOnCard([{ target: lShapeTarget }, { target: mirroredRotatedLShapeTarget }]));
+assert.ok(!twoTaskTargetsFitOnCard([{ target: lShapeTarget, combos: [{ pieces: ["P01", "P04", "P07"] }] }, { target: mirroredRotatedLShapeTarget, combos: [{ pieces: ["P03", "P08", "P12"] }] }]));
+assert.ok(!twoTaskTargetsFitOnCard([{ target: lShapeTarget, combos: [{ pieces: ["P01", "P13", "P15"] }] }, { target: mirroredRotatedLShapeTarget, combos: [{ pieces: ["P02", "P14", "P15"] }] }]));
+assert.strictEqual(taskVariantSignature({ target: lShapeTarget, combos: [{ pieces: ["P01", "P13", "P15"] }] }), taskVariantSignature({ target: mirroredRotatedLShapeTarget, combos: [{ pieces: ["P02", "P14", "P15"] }] }));
+assert.notStrictEqual(taskVariantSignature({ target: lShapeTarget, combos: [{ pieces: ["P01", "P04", "P07"] }] }), taskVariantSignature({ target: mirroredRotatedLShapeTarget, combos: [{ pieces: ["P03", "P08", "P12"] }] }));
 const visualOrderCombo = { pieces: ["P01", "P03", "P04", "P06", "P08"] };
 const visualOrderCard = { seed: 2468 };
 const visualOrderA = displayPiecesForCombo(visualOrderCombo, visualOrderCard, 0);
@@ -434,6 +509,8 @@ assert.strictEqual(defaultCard.cardNumber, 1);
 assert.strictEqual(defaultCard.challengeCode, "CB-01");
 assert.strictEqual(defaultCard.targetCellSizeMm, 14.5);
 assert.strictEqual(challengeCodeForCard(defaultCard), "CB-01");
+assert.strictEqual(defaultCard.w, 7);
+assert.strictEqual(defaultCard.h, 5);
 assert.ok([12, 14].includes(defaultCard.target.length));
 assert.strictEqual(defaultCard.tasks.length, 2);
 assert.strictEqual(defaultCard.tasks[0].target, defaultCard.target);
@@ -441,8 +518,12 @@ assert.strictEqual(defaultCard.tasks[0].combos, defaultCard.combos);
 assert.ok(defaultCard.tasks.every((task) => [12, 14].includes(task.target.length)));
 assert.ok(defaultCard.tasks.every((task) => task.combos.length >= 1 && task.combos.length <= 3));
 assert.ok(defaultCard.tasks.every((task) => task.requestedComboCount === 3));
-assert.ok(targetFootprintStats(defaultCard.tasks[0].target).width <= 4);
-assert.ok(targetFootprintStats(defaultCard.tasks[1].target).width <= 3);
+assert.ok(targetFootprintStats(defaultCard.tasks[0].target).width <= 3);
+assert.ok(targetFootprintStats(defaultCard.tasks[1].target).width <= 4);
+assert.strictEqual(defaultCard.tasks[0].w, 3);
+assert.strictEqual(defaultCard.tasks[0].h, 5);
+assert.strictEqual(defaultCard.tasks[1].w, 4);
+assert.strictEqual(defaultCard.tasks[1].h, 5);
 assert.ok(twoTaskTargetsFitOnCard(defaultCard.tasks));
 assert.ok(defaultCard.combos.length >= 1 && defaultCard.combos.length <= 3);
 assert.ok(defaultCard.combos.every((combo) => combo.pieces.every((id) => !DEFAULT_EXCLUDED_PIECES.has(id))));
@@ -580,6 +661,58 @@ renderedSolutions.forEach((solutionNode, solutionIndex) => {
     assert.ok(["#050505", "#f8fbfc"].includes(cell.style.color));
   }
 });
+generationHistory = { targets: [], targetFootprints: [], taskVariants: [], comboSets: [], volumes: [], pieceCounts: {} };
+updateGenerationHistory(defaultCard);
+const defaultTaskFootprints = defaultCard.tasks.map((task) => targetFootprintCanonicalSignature(task.target));
+const defaultTaskVariants = defaultCard.tasks.map((task) => taskVariantSignature(task));
+assert.deepStrictEqual(generationHistory.targetFootprints, defaultTaskFootprints);
+assert.deepStrictEqual(generationHistory.taskVariants, defaultTaskVariants);
+const usedDefaultFootprints = usedTargetFootprintSignatures(generationHistory);
+const usedDefaultTaskVariants = usedTaskVariantSignatures(generationHistory);
+assert.ok(defaultTaskFootprints.every((signature) => usedDefaultFootprints.has(signature)));
+assert.ok(defaultTaskVariants.every((signature) => usedDefaultTaskVariants.has(signature)));
+assert.strictEqual(targetFootprintCanonicalSignature(lShapeTarget), targetFootprintCanonicalSignature(mirroredRotatedLShapeTarget));
+assert.strictEqual(
+  usedTargetFootprintSignatures({ targetFootprints: [targetFootprintCanonicalSignature(lShapeTarget)] }).has(targetFootprintCanonicalSignature(mirroredRotatedLShapeTarget)),
+  true
+);
+assert.strictEqual(
+  usedTaskVariantSignatures({ taskVariants: [taskVariantSignature({ target: lShapeTarget, combos: [{ pieces: ["P01", "P13", "P15"] }] })] }).has(taskVariantSignature({ target: mirroredRotatedLShapeTarget, combos: [{ pieces: ["P02", "P14", "P15"] }] })),
+  true
+);
+assert.strictEqual(
+  usedTaskVariantSignatures({ taskVariants: [taskVariantSignature({ target: lShapeTarget, combos: [{ pieces: ["P01", "P04", "P07"] }] })] }).has(taskVariantSignature({ target: mirroredRotatedLShapeTarget, combos: [{ pieces: ["P03", "P08", "P12"] }] })),
+  false
+);
+assert.strictEqual(
+  usedTargetFootprintSignatures({ targetFootprints: [targetFootprintCanonicalSignature(lShapeTarget)] }).has(targetFootprintCanonicalSignature(mirroredRotatedLShapeTarget)),
+  true
+);
+showGenerationOverlay();
+assert.ok(inputs.generationOverlay.classList.contains("visible"));
+assert.strictEqual(inputs.generationOverlay.getAttribute("aria-hidden"), "false");
+assert.strictEqual(inputs.generationOverlayText.textContent, "Generating a new card...");
+hideGenerationOverlay();
+assert.ok(!inputs.generationOverlay.classList.contains("visible"));
+assert.strictEqual(inputs.generationOverlay.getAttribute("aria-hidden"), "true");
+showNewSessionAction();
+assert.ok(!inputs.newSession.classList.contains("hidden"));
+hideNewSessionAction();
+assert.ok(inputs.newSession.classList.contains("hidden"));
+generationHistory = { targets: ["a"], targetFootprints: ["b"], taskVariants: ["v"], comboSets: ["c"], volumes: [12], pieceCounts: { P01: 2 } };
+resetGenerationSession();
+assert.deepStrictEqual(generationHistory, emptyGenerationHistory());
+inputs.pieceCount.value = "3";
+inputs.manualMode.checked = true;
+renderManualLayerEditor();
+assert.strictEqual(inputs.manualLayerEditorA.style.gridTemplateColumns, "repeat(3, 34px)");
+assert.strictEqual(inputs.manualLayerEditorB.style.gridTemplateColumns, "repeat(4, 34px)");
+inputs.pieceCount.value = "5";
+renderManualLayerEditor();
+assert.strictEqual(inputs.manualLayerEditorA.style.gridTemplateColumns, "repeat(7, 34px)");
+assert.ok(inputs.manualLayerEditorB.classList.contains("hidden"));
+inputs.manualMode.checked = false;
+inputs.pieceCount.value = "3";
 renderGameCardView({ ...defaultCard, targetCellSizeMm: 13 });
 const thirteenMmMap = findAllElements(inputs.gameCardView, (node) => (node.className || "").includes("gameTargetMap"))[0];
 const thirteenMmGrid = findAllElements(thirteenMmMap, (node) => (node.className || "").split(/\s+/).includes("gameTargetGrid"))[0];
@@ -654,24 +787,34 @@ assert.strictEqual(largePrintPackages.length, 1);
 assert.strictEqual(largePrintPackages[0].style["--print-card-height"], "176mm");
 inputs.pieceCount.value = "3";
 
-printCards.length = 0;
+generatedCards.length = 0;
+selectedPrintCardIds.length = 0;
 printCallCount = 0;
-addCardToPrintQueue(defaultCard);
-assert.strictEqual(printCards.length, 1);
+assert.strictEqual(printReadyCards(), false);
+assert.strictEqual(globalThis.lastStatusMessage, "Select at least one generated card for printing.");
+addGeneratedCard(defaultCard);
+assert.strictEqual(generatedCards.length, 1);
+assert.strictEqual(selectedPrintCardIds.length, 1);
+assert.strictEqual(inputs.printSelectionCount.textContent, "Selected for print: 1/2");
+assert.ok(!inputs.printSelectionPanel.classList.contains("hidden"));
+assert.strictEqual(findAllElements(inputs.generatedCardsList, (node) => (node.className || "").split(/\s+/).includes("generatedCardPreview")).length, 1);
 printReadyCards();
 assert.strictEqual(printCallCount, 0);
 assert.ok(body.classList.contains("printPreviewMode"));
-assert.strictEqual(globalThis.lastStatusMessage, "Print preview ready for 1 card. Press Print now or Ctrl+P.");
+assert.strictEqual(globalThis.lastStatusMessage, "Print preview ready for 1 card. Press Print or Export PDF.");
 assert.strictEqual(inputs.printSheet.getAttribute("data-card-count"), "1");
 assert.strictEqual(findAllElements(inputs.printSheet, (node) => (node.className || "").split(/\s+/).includes("printCardPackage")).length, 1);
 assert.strictEqual(findAllElements(inputs.printSheet, (node) => (node.className || "").split(/\s+/).includes("gameCardView")).length, 1);
 assert.strictEqual(findAllElements(inputs.printSheet, (node) => (node.className || "").split(/\s+/).includes("printSolutionBlock")).length, 1);
-printNow();
-assert.strictEqual(printCallCount, 1);
-assert.strictEqual(globalThis.lastStatusMessage, "Print requested. If no dialog opens, use Open print page or Ctrl+P.");
 popupOpenCount = 0;
 lastPopup = null;
 blockedPopup = false;
+assert.strictEqual(printNow(), true);
+assert.strictEqual(printCallCount, 1);
+assert.strictEqual(popupOpenCount, 0);
+assert.strictEqual(globalThis.lastStatusMessage, "Print requested from the current preview. If no dialog opens in this browser, use Chrome or Ctrl+P.");
+popupOpenCount = 0;
+lastPopup = null;
 assert.strictEqual(openPrintPage(), true);
 assert.strictEqual(popupOpenCount, 1);
 assert.ok(lastPopup.html.includes('<link rel="stylesheet" href="style.css?v=test">'));
@@ -681,14 +824,17 @@ assert.ok(lastPopup.html.includes('Open') === false);
 assert.ok(lastPopup.html.includes('Print'));
 assert.strictEqual(lastPopup.focused, true);
 assert.strictEqual(globalThis.lastStatusMessage, "Print page opened. Use its Print button or Ctrl+P.");
+popupOpenCount = 0;
+lastPopup = null;
 blockedPopup = true;
 assert.strictEqual(openPrintPage(), false);
 assert.strictEqual(globalThis.lastStatusMessage, "Popup blocked. Allow popups for this site or press Ctrl+P on the preview.");
 blockedPopup = false;
 exitPrintPreview();
 assert.ok(!body.classList.contains("printPreviewMode"));
-addCardToPrintQueue(singleTaskCard);
-assert.strictEqual(printCards.length, 2);
+addGeneratedCard(singleTaskCard);
+assert.strictEqual(generatedCards.length, 2);
+assert.deepStrictEqual(selectedPrintCards(), [defaultCard, singleTaskCard]);
 renderPrintSheet();
 assert.strictEqual(inputs.printSheet.getAttribute("data-card-count"), "2");
 let printSheetCards = findAllElements(inputs.printSheet, (node) => (node.className || "").split(/\s+/).includes("gameCardView"));
@@ -713,23 +859,49 @@ printSolutionItems.forEach((item) => {
   assert.strictEqual(svg.getAttribute("width"), "104");
   assert.strictEqual(svg.getAttribute("height"), "74");
 });
+printCallCount = 0;
 printReadyCards();
-assert.strictEqual(printCallCount, 1);
+assert.strictEqual(printCallCount, 0);
 assert.ok(body.classList.contains("printPreviewMode"));
-assert.strictEqual(globalThis.lastStatusMessage, "Print preview ready for 2 cards. Press Print now or Ctrl+P.");
+assert.strictEqual(globalThis.lastStatusMessage, "Print preview ready for 2 cards. Press Print or Export PDF.");
 const replacementPrintCard = { ...defaultCard, seed: defaultCard.seed + 1 };
-addCardToPrintQueue(replacementPrintCard);
-assert.strictEqual(printCards.length, 2);
-assert.strictEqual(printCards[0], singleTaskCard);
-assert.strictEqual(printCards[1], replacementPrintCard);
+addGeneratedCard(replacementPrintCard);
+assert.strictEqual(generatedCards.length, 3);
+assert.deepStrictEqual(selectedPrintCards(), [singleTaskCard, replacementPrintCard]);
+assert.strictEqual(inputs.printSelectionCount.textContent, "Selected for print: 2/2");
+togglePrintCardSelection(defaultCard.sessionCardId);
+assert.deepStrictEqual(selectedPrintCards(), [replacementPrintCard, defaultCard]);
+assert.strictEqual(inputs.printSelectionCount.textContent, "Selected for print: 2/2");
+togglePrintCardSelection(defaultCard.sessionCardId);
+assert.deepStrictEqual(selectedPrintCards(), [replacementPrintCard]);
+assert.strictEqual(inputs.printSelectionCount.textContent, "Selected for print: 1/2");
+printReadyCards();
+assert.strictEqual(inputs.printSheet.getAttribute("data-card-count"), "1");
+assert.deepStrictEqual(
+  findAllElements(inputs.printSheet, (node) => (node.className || "").split(/\s+/).includes("gameCardCode")).map((node) => node.textContent),
+  [replacementPrintCard.challengeCode]
+);
+for (let i = 0; i < 5; i++) {
+  addGeneratedCard({ ...defaultCard, seed: defaultCard.seed + 10 + i });
+}
+assert.strictEqual(generatedCards.length, 6);
+assert.ok(!generatedCards.some((card) => card.sessionCardId === singleTaskCard.sessionCardId));
+assert.ok(findAllElements(inputs.generatedCardsList, (node) => (node.className || "").split(/\s+/).includes("generatedCardPreview")).length >= 1);
 
 assert.ok(isRetryableGenerationError(new Error("Only plain rectangular targets were found with these settings.")));
 assert.ok(isRetryableGenerationError(new Error("Could not find enough combinations. Try fewer pieces, more attempts, or a different seed.")));
-assert.ok(!isRetryableGenerationError(new Error("No board-sized target is possible on a 6x6 board with 3 pieces. Increase pieces per variant.")));
+assert.ok(isRetryableGenerationError(new Error("No new unique targets left for this session. Change settings, increase attempts, or reload the page to start a new session.")));
+assert.ok(!isRetryableGenerationError(new Error("No target that fits the fixed 7x5 task area is possible with 3 pieces. Increase pieces per variant.")));
+assert.strictEqual(fullVariantRequirementText(), "full 3/3 + 3/3 variant set");
+assert.strictEqual(
+  incompleteGenerationFailureMessage(),
+  "Could not find a full 3/3 + 3/3 variant set within the current Generation attempts budget. Try Generate card again, increase attempts, or broaden the active piece set.",
+);
 
 const realGenerateCardForRetry = generateCard;
 try {
   inputs.seed.value = "200";
+  inputs.attempts.value = "2";
   const retrySeeds = [];
   let retryAttempts = 0;
   generateCard = () => {
@@ -757,6 +929,8 @@ try {
   assert.deepStrictEqual(retrySeeds, ["200", "10173"]);
   assert.strictEqual(retriedIncompleteCard.incomplete, false);
   assert.strictEqual(retriedIncompleteCard.retryCount, 1);
+  assert.strictEqual(currentGenerationAttempt, null);
+  assert.strictEqual(currentGenerationAttemptBudget, null);
 } finally {
   generateCard = realGenerateCardForRetry;
   inputs.seed.value = "12345";
@@ -765,47 +939,112 @@ try {
 inputs.manualMode.checked = true;
 manualLayerCellsA = new Set(["0,0", "0,1", "1,0", "1,1", "2,0", "2,1"]);
 manualLayerCellsB = new Set(["0,0", "1,0", "2,0", "0,1", "0,2", "1,2"]);
-const manualLayerCard = generateCard();
+generationHistory = {
+  targets: [],
+  targetFootprints: [targetFootprintCanonicalSignature(manualLayerTarget(3, 5, 2, manualLayerCellsA, "1"))],
+  taskVariants: [],
+  comboSets: [],
+  volumes: [],
+  pieceCounts: {},
+};
+const realGenerateSingleTaskForManual = generateSingleTask;
+try {
+  let manualCalls = 0;
+  generateSingleTask = (options = {}) => {
+    manualCalls++;
+    return {
+      seed: 1,
+      w: manualCalls === 1 ? 3 : 4,
+      h: 5,
+      levels: 2,
+      pieceCount: 3,
+      target: manualCalls === 1 ? manualLayerTarget(3, 5, 2, manualLayerCellsA, "1") : manualLayerTarget(4, 5, 2, manualLayerCellsB, "2"),
+      combos: [{ pieces: ["P01", "P04", "P07"], solution: [] }],
+      requestedComboCount: 3,
+      incomplete: false,
+      pieceLibrary: pieces,
+      activeLibrary: "test-library",
+      targetMode: "equal-layer",
+    };
+  };
+  const manualLayerCard = generateCard();
 assert.strictEqual(manualLayerCard.target.length, 12);
 assert.strictEqual(manualLayerCard.tasks.length, 2);
 assert.strictEqual(layerSignature(manualLayerCard.target, 0), "0,0;0,1;1,0;1,1;2,0;2,1");
 assert.strictEqual(layerSignature(manualLayerCard.target, 0), layerSignature(manualLayerCard.target, 1));
 assert.strictEqual(layerSignature(manualLayerCard.tasks[1].target, 0), "0,0;0,1;0,2;1,0;1,2;2,0");
 assert.ok(manualLayerCard.combos.length >= 1);
+} finally {
+  generateSingleTask = realGenerateSingleTaskForManual;
+}
 
-manualLayerCellsA = new Set(["0,0", "3,3"]);
+manualLayerCellsA = new Set(["0,0", "2,4"]);
 manualLayerCellsB = new Set(["0,0", "1,0", "2,0", "0,1", "1,1", "2,1"]);
 assert.throws(
   () => generateCard(),
   /Manual layer 1 cells must be connected/,
 );
 
-manualLayerCellsA = new Set(["2,0", "3,0", "0,1", "1,1", "2,1", "3,1", "3,2"]);
+manualLayerCellsA = new Set(["0,0", "1,0", "2,0", "0,1", "1,1", "2,1", "1,2"]);
 manualLayerCellsB = new Set(["0,0", "1,0", "2,0", "0,1", "1,1", "2,1"]);
-const xA1ManualCard = generateCard();
-assert.strictEqual(xA1ManualCard.target.length, 14);
-assert.ok(xA1ManualCard.combos.length >= 1);
-const xA1Pieces = ["P06", "P07", "P14"].map((id) => pieces.find((piece) => piece.id === id));
-const xA1Cache = Object.fromEntries(xA1Pieces.map((piece) => [piece.id, makePlacementsForPiece(piece, 4, 4, 2)]));
-const xA1SpecificSolution = solveExact(xA1Pieces, xA1ManualCard.target, 4, 4, 2, mulberry32(1), 1000000, xA1Cache);
-assert.ok(xA1SpecificSolution);
+const xA1ManualTargetA = manualLayerTarget(3, 5, 2, manualLayerCellsA, "1");
+const xA1ManualTargetB = manualLayerTarget(4, 5, 2, manualLayerCellsB, "2");
+assert.ok(twoTaskTargetsFitOnCard([xA1ManualTargetA, xA1ManualTargetB]));
 
-manualLayerCellsA = new Set(["0,0", "1,0", "2,0", "3,0"]);
-manualLayerCellsB = new Set(["0,1", "1,1", "2,1", "3,1"]);
+manualLayerCellsA = new Set(["0,0", "1,0", "2,0"]);
+manualLayerCellsB = new Set(["0,0", "1,0", "2,0"]);
 assert.throws(
   () => generateCard(),
-  /Two task targets collide: left target must be at most 4 columns wide, right target must be at most 3 columns wide, targets cannot be identical or rotation\/mirror equivalents, and 4-cell rows cannot be on the same or adjacent rows\./,
+  /Two task targets collide: left target must be at most 3 columns wide, right target must be at most 4 columns wide, mirrored\/equivalent contours cannot repeat, and 4-cell rows cannot be on the same or adjacent rows\./,
 );
 inputs.manualMode.checked = false;
+generationHistory = { targets: [], targetFootprints: [], taskVariants: [], comboSets: [], volumes: [], pieceCounts: {} };
+inputs.attempts.value = "20";
 
-const defaultRetryCard = generateCardWithRetries(1);
+const defaultRetryCard = generateCardWithRetries();
 assert.ok([12, 14].includes(defaultRetryCard.target.length));
 assert.strictEqual(defaultRetryCard.tasks.length, 2);
 assert.ok(defaultRetryCard.tasks.every((task) => task.combos.length >= 1 && task.combos.length <= 3));
-assert.ok(targetFootprintStats(defaultRetryCard.tasks[0].target).width <= 4);
-assert.ok(targetFootprintStats(defaultRetryCard.tasks[1].target).width <= 3);
+assert.ok(targetFootprintStats(defaultRetryCard.tasks[0].target).width <= 3);
+assert.ok(targetFootprintStats(defaultRetryCard.tasks[1].target).width <= 4);
 assert.ok(twoTaskTargetsFitOnCard(defaultRetryCard.tasks));
 assert.strictEqual(defaultRetryCard.incomplete, defaultRetryCard.tasks.some((task) => task.incomplete));
+inputs.attempts.value = "1200";
+
+const realGenerateCardForBudget = generateCard;
+try {
+  inputs.seed.value = "400";
+  inputs.attempts.value = "5";
+  let incompleteAttempts = 0;
+  generateCard = () => {
+    incompleteAttempts++;
+    return {
+      seed: +inputs.seed.value,
+      w: 4,
+      h: 5,
+      levels: 2,
+      target: [],
+      combos: [{ pieces: ["P01"] }],
+      requestedComboCount: 6,
+      incomplete: true,
+      tasks: [
+        { target: [], combos: [{ pieces: ["P01"] }], requestedComboCount: 3, incomplete: true },
+        { target: [], combos: [{ pieces: ["P03"] }], requestedComboCount: 3, incomplete: true },
+      ],
+    };
+  };
+  assert.throws(
+    () => generateCardWithRetries(),
+    /Could not find a full 3\/3 \+ 3\/3 variant set within the current Generation attempts budget/,
+  );
+  assert.strictEqual(incompleteAttempts, 5);
+  assert.strictEqual(currentGenerationAttempt, null);
+  assert.strictEqual(currentGenerationAttemptBudget, null);
+} finally {
+  generateCard = realGenerateCardForBudget;
+  inputs.seed.value = "12345";
+  inputs.attempts.value = "1200";
+}
 
 const repeatedTarget = defaultCard;
 const diverseTarget = {
@@ -833,13 +1072,13 @@ randomSeedMode = false;
 assert.notStrictEqual(cardSignature(variedSeedCardA), cardSignature(variedSeedCardB));
 
 inputs.seed.value = "2";
-generationHistory = { targets: [targetCellsSignature(variedSeedCardA.target)], comboSets: [comboSet(variedSeedCardA)], pieceCounts: { P16: 99 } };
+generationHistory = { targets: [targetCellsSignature(variedSeedCardA.target)], targetFootprints: [], taskVariants: [], comboSets: [comboSet(variedSeedCardA)], pieceCounts: { P16: 99 } };
 const explicitSeedCardA = generateCard();
-generationHistory = { targets: [], comboSets: [], pieceCounts: {} };
+generationHistory = { targets: [], targetFootprints: [], taskVariants: [], comboSets: [], pieceCounts: {} };
 const explicitSeedCardB = generateCard();
 assert.strictEqual(cardSignature(explicitSeedCardA), cardSignature(explicitSeedCardB));
 
-generationHistory = { targets: [], comboSets: [], pieceCounts: {} };
+generationHistory = { targets: [], targetFootprints: [], taskVariants: [], comboSets: [], pieceCounts: {} };
 const seriesComboSets = new Set();
 const seriesTargets = new Set();
 const seriesPieces = new Set();
@@ -856,6 +1095,14 @@ randomSeedMode = false;
 assert.ok(seriesComboSets.size > 2);
 assert.ok(seriesTargets.size > 4);
 assert.ok([...seriesPieces].some((id) => !["P13", "P14", "P15", "P16", "P18"].includes(id)));
+
+generationHistory = { targets: [], targetFootprints: defaultCard.tasks.map((task) => targetFootprintCanonicalSignature(task.target)), taskVariants: defaultCard.tasks.map((task) => taskVariantSignature(task)), comboSets: [], volumes: [], pieceCounts: {} };
+inputs.seed.value = "12345";
+randomSeedMode = true;
+const uniqueAfterHistoryCard = generateCard();
+randomSeedMode = false;
+assert.ok(uniqueAfterHistoryCard.tasks.every((task) => !generationHistory.targetFootprints.includes(targetFootprintCanonicalSignature(task.target))));
+assert.ok(twoTaskTargetsFitOnCard(uniqueAfterHistoryCard.tasks));
 
 inputs.levels.value = "3";
 inputs.pieceCount.value = "2";
@@ -890,18 +1137,18 @@ assert.strictEqual(generatedThreeLevelCard.incomplete, generatedThreeLevelCard.t
 assert.strictEqual(generatedThreeLevelCombos.size, generatedThreeLevelCard.combos.length);
 assert.ok(generatedThreeLevelCard.combos.some((combo) => combo.pieces.includes("P17")));
 
-inputs.w.value = "4";
-inputs.h.value = "2";
 inputs.levels.value = "2";
-inputs.pieceCount.value = "3";
-inputs.comboCount.value = "2";
+inputs.pieceCount.value = "5";
 inputs.seed.value = "1781123196111";
 
-const narrowCard = generateCard();
-assert.ok(narrowCard.combos.length >= 1 && narrowCard.combos.length <= 3);
-assert.ok(!isPlainRectangularTarget(narrowCard.target));
+const singleBoardCard = generateCard();
+assert.strictEqual(singleBoardCard.tasks.length, 1);
+assert.strictEqual(singleBoardCard.w, 7);
+assert.strictEqual(singleBoardCard.h, 5);
+assert.ok(singleBoardCard.combos.length >= 1 && singleBoardCard.combos.length <= 6);
+assert.ok(!isPlainRectangularTarget(singleBoardCard.target));
 
-const shapedTargets = generatedTargetsFor(mulberry32(42), 4, 4, 2, [12], 120);
+const shapedTargets = generatedTargetsFor(mulberry32(42), 7, 5, 2, [12], 120);
 const shapedTargetSignatures = new Set(shapedTargets.map((target) => targetSignature({ target: target.target })));
 
 assert.ok(shapedTargets.length >= 50);
@@ -925,25 +1172,73 @@ const mirroredDuplicateCard = {
 const mirroredDuplicateCombos = new Set(mirroredDuplicateCard.combos.map((combo) => pieceSetSignature(combo.pieces)));
 assert.notStrictEqual(mirroredDuplicateCombos.size, mirroredDuplicateCard.combos.length);
 
-inputs.w.value = "6";
-inputs.h.value = "6";
-inputs.levels.value = "2";
-inputs.pieceCount.value = "3";
-inputs.comboCount.value = "6";
-inputs.seed.value = "12345";
+(async () => {
+  const realGenerateCardWithRetries = generateCardWithRetries;
+  const realLoadPiecesFromText = loadPiecesFromText;
+  try {
+    generatedCards.length = 0;
+    selectedPrintCardIds.length = 0;
+    addGeneratedCard(defaultCard);
+    renderPrintSheet();
+    popupOpenCount = 0;
+    printCallCount = 0;
+    savedPdfFilename = null;
+    savedPdfImages = [];
+    savedPdfOutputMode = null;
+    clickedDownloadHref = null;
+    clickedDownloadName = null;
+    html2canvasCallCount = 0;
+    const exported = await exportPdf();
+    assert.strictEqual(exported, true);
+    assert.strictEqual(popupOpenCount, 1);
+    assert.strictEqual(printCallCount, 0);
+    assert.strictEqual(html2canvasCallCount, 1);
+    assert.strictEqual(lastHtml2canvasTarget, inputs.printSheet);
+    assert.strictEqual(savedPdfOutputMode, "blob");
+    assert.strictEqual(clickedDownloadHref, "blob:ubongo-test-pdf");
+    assert.strictEqual(clickedDownloadName, "ubongo3d-cards.pdf");
+    assert.strictEqual(savedPdfFilename, null);
+    assert.strictEqual(savedPdfImages.length, 1);
+    assert.strictEqual(globalThis.lastStatusMessage, "PDF ready. If the download did not start, save it from the opened PDF tab.");
 
-assert.throws(
-  () => generateCard(),
-  /Increase pieces per variant/,
-);
+    generatedCards.length = 0;
+    selectedPrintCardIds.length = 0;
+    inputs.generate.disabled = false;
+    hideNewSessionAction();
+    loadPiecesFromText = () => {};
+    generateCardWithRetries = () => ({ ...defaultCard, retryCount: 0 });
+    const handledCard = await handleGenerateCard();
+    assert.ok(handledCard);
+    assert.strictEqual(inputs.generate.disabled, false);
+    assert.ok(!inputs.generationOverlay.classList.contains("visible"));
+    assert.ok(inputs.newSession.classList.contains("hidden"));
+    assert.ok(globalThis.lastStatusMessage.startsWith("Done: card generated"));
+    assert.strictEqual(generatedCards.length, 1);
+    assert.strictEqual(selectedPrintCardIds.length, 1);
 
-const largeTargets = generatedTargetsFor(mulberry32(99), 6, 6, 2, [16], 120);
-const largeTargetSignatures = new Set(largeTargets.map((target) => targetSignature({ target: target.target })));
+    generationHistory = { targets: ["x"], targetFootprints: ["y"], comboSets: ["z"], volumes: [12], pieceCounts: { P01: 1 } };
+    generatedCards = [defaultCard];
+    selectedPrintCardIds = [ensureGeneratedCardId(defaultCard)];
+    generateCardWithRetries = () => { throw newUniqueTargetError(); };
+    const noCard = await handleGenerateCard();
+    assert.strictEqual(noCard, null);
+    assert.strictEqual(inputs.generate.disabled, false);
+    assert.ok(!inputs.generationOverlay.classList.contains("visible"));
+    assert.ok(!inputs.newSession.classList.contains("hidden"));
+    assert.strictEqual(globalThis.lastStatusMessage, "No new unique targets left in this session. Start a new session to generate more cards with repeats allowed across sessions.");
+    assert.strictEqual(generatedCards.length, 1);
 
-assert.ok(largeTargets.length > 1);
-assert.ok(largeTargetSignatures.size > 1);
-for (const target of largeTargets.slice(0, 12)) {
-  const bounds = layerBounds({ target: target.target });
-  assert.ok(bounds.width >= 4 || bounds.height >= 4);
-  assert.ok(bounds.area >= 8);
-}
+    inputs.newSession.onclick();
+    assert.deepStrictEqual(generationHistory, emptyGenerationHistory());
+    assert.ok(inputs.newSession.classList.contains("hidden"));
+    assert.strictEqual(globalThis.lastStatusMessage, "New session started. Generate a new card.");
+    assert.strictEqual(generatedCards.length, 0);
+    assert.strictEqual(selectedPrintCardIds.length, 0);
+  } finally {
+    generateCardWithRetries = realGenerateCardWithRetries;
+    loadPiecesFromText = realLoadPiecesFromText;
+  }
+})().catch((error) => {
+  console.error(error);
+  process.exit(1);
+});
