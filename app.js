@@ -339,6 +339,18 @@ function generationProgressMessage() {
   return `Generating: trying candidate card ${currentGenerationAttempt} of ${currentGenerationAttemptBudget}...`;
 }
 
+function autoTargetSearchLimit(targetCount, attempts) {
+  if (!targetCount) return 0;
+  const adaptiveBudget = Math.ceil(160 / Math.sqrt(Math.max(1, attempts)));
+  return Math.min(targetCount, Math.max(8, Math.min(64, adaptiveBudget)));
+}
+
+function autoComboSetSearchLimit(candidateSetCount, comboCount, pieceCount, attempts) {
+  if (!candidateSetCount) return 0;
+  const adaptiveBudget = Math.ceil(280 / Math.sqrt(Math.max(1, attempts))) + pieceCount * 5;
+  return Math.min(candidateSetCount, Math.max(comboCount * 5, Math.min(96, adaptiveBudget)));
+}
+
 function updateGenerationHistory(card) {
   generationHistory.targets ||= [];
   generationHistory.targetFootprints ||= [];
@@ -1278,7 +1290,7 @@ function generateSingleTask(options = {}) {
   setStatus(generationProgressMessage());
   const searchLimit = manualTarget
     ? Math.min(attempts, targetCandidates.length, 260)
-    : Math.min(attempts, targetCandidates.length, 80);
+    : autoTargetSearchLimit(targetCandidates.length, attempts);
   for (let a = 0; a < searchLimit; a++) {
     const target = targetCandidates[a].target;
     const targetVol = target.length;
@@ -1286,7 +1298,11 @@ function generateSingleTask(options = {}) {
     const foundCombos = [];
     const seenSets = new Set();
     const comboSearchLimit = manualTarget ? Math.max(comboCount * 2, 12) : Math.max(comboCount, 6);
-    for (const set of candidateSets) {
+    const candidateSetLimit = manualTarget
+      ? candidateSets.length
+      : autoComboSetSearchLimit(candidateSets.length, comboCount, pieceCount, attempts);
+    for (let setIndex = 0; setIndex < candidateSetLimit; setIndex++) {
+      const set = candidateSets[setIndex];
       const signature = pieceSetSignature(set.map((p) => p.id));
       if (seenSets.has(signature)) continue;
       if (manualTarget) checkedManualSets++;
