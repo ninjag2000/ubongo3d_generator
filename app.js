@@ -1,8 +1,13 @@
 const DATA_URL = "data/pieces_thingiverse_6534722.json";
+const DATA_2D_URL = "data/pieces_2d_photo.json";
 const MIN_TARGET_VOLUME = 12;
+const MIN_2D_TARGET_AREA = 9;
 const MAX_TASKS_PER_CARD = 2;
 const COMBOS_PER_TASK = 3;
 const VARIANT_SLOTS_PER_CARD = 6;
+const APP_MODE_STORAGE_KEY = "ubongo_generator_mode_v1";
+const MODE_2D = "2d";
+const MODE_3D = "3d";
 const CARD_BACKGROUNDS = {
   cyan: "assets/ubongo-board-cyan.png",
   green: "assets/ubongo-board-green.png",
@@ -25,9 +30,10 @@ const MIRROR_EQUIVALENT_PIECES = {
   P07: "P07/P09",
   P09: "P07/P09",
 };
-var PIECE_COLORS_STORAGE_KEY = "ubongo3d_piece_colors_v1";
-var PIECE_SELECTION_STORAGE_KEY = "ubongo3d_piece_selection_v1";
-var PIECE_CUSTOM_SELECTION_STORAGE_KEY = "ubongo3d_piece_custom_selection_v1";
+var appMode = loadAppMode();
+var PIECE_COLORS_STORAGE_KEY = storageKeyForMode("colors", appMode);
+var PIECE_SELECTION_STORAGE_KEY = storageKeyForMode("selection", appMode);
+var PIECE_CUSTOM_SELECTION_STORAGE_KEY = storageKeyForMode("custom_selection", appMode);
 var DEFAULT_EXCLUDED_PIECES = new Set(["P02", "P10", "P14"]);
 var VISUAL_ROTATE_180_PIECES = new Set(["P02", "P07", "P10", "P12", "P13", "P16"]);
 var VISUAL_ROTATE_90_PIECES = new Set(["P18"]);
@@ -52,6 +58,18 @@ var DEFAULT_PIECE_COLORS = {
   P16: "#1054da",
   P17: "#e5392d",
   P18: "#066008",
+  D01: "#b46e08",
+  D02: "#7f2d89",
+  D03: "#68aa1b",
+  D04: "#0b9827",
+  D05: "#bfd218",
+  D06: "#069a79",
+  D07: "#d33420",
+  D08: "#278fc6",
+  D09: "#cbb525",
+  D10: "#1aa9d1",
+  D11: "#846629",
+  D12: "#b83e9b",
 };
 const PDF_BOARD_PRESETS = [
   { id: "X-A1-top", cells: [[0, 0], [1, 0], [2, 0], [1, 1], [2, 1], [3, 1]] },
@@ -69,20 +87,77 @@ const PDF_BOARD_PRESETS = [
 
 const BUILTIN_THINGIVERSE_PIECES = [{"id":"P01","sourceFiles":["BLEU_5_UBONGO.stl"],"cubes":[[0,0,0],[0,0,1],[1,0,0],[1,1,0],[1,2,0]]},{"id":"P02","sourceFiles":["BLEU_6_UBONGO.stl"],"cubes":[[0,1,0],[0,2,0],[0,2,1],[1,0,0],[1,1,0]]},{"id":"P03","sourceFiles":["BLEU_7_UBONGO.stl"],"cubes":[[0,0,0],[0,1,0],[1,0,0],[1,1,0],[1,2,0]]},{"id":"P04","sourceFiles":["BLEU_8_UBONGO.stl"],"cubes":[[0,0,0],[1,0,0],[1,1,0]]},{"id":"P06","sourceFiles":["JAUNE_2_UBONGO.stl"],"cubes":[[0,2,0],[1,0,0],[1,0,1],[1,1,0],[1,2,0]]},{"id":"P07","sourceFiles":["JAUNE_3_UBONGO.stl"],"cubes":[[0,0,0],[0,1,0],[1,1,0],[1,1,1]]},{"id":"P08","sourceFiles":["JAUNE_4_UBONGO.stl"],"cubes":[[0,0,0],[0,2,0],[1,0,0],[1,1,0],[1,2,0]]},{"id":"P09","sourceFiles":["ROUGE_10_UBONGO.stl"],"cubes":[[0,1,0],[0,1,1],[1,0,0],[1,1,0]]},{"id":"P10","sourceFiles":["ROUGE_11_UBONGO.stl"],"cubes":[[0,0,0],[1,0,0],[1,1,0],[1,2,0],[1,2,1]]},{"id":"P11","sourceFiles":["ROUGE_12_UBONGO.stl"],"cubes":[[0,1,0],[0,2,0],[1,0,0],[1,1,0]]},{"id":"P12","sourceFiles":["ROUGE_9_UBONGO.stl"],"cubes":[[0,0,0],[0,1,0],[1,0,0],[1,1,0],[1,1,1]]},{"id":"P13","sourceFiles":["VERT_13_UBONGO.stl"],"cubes":[[0,0,0],[0,1,0],[1,1,0],[1,2,0],[1,2,1]]},{"id":"P14","sourceFiles":["VERT_14_UBONGO.stl"],"cubes":[[0,2,0],[0,2,1],[1,0,0],[1,1,0],[1,2,0]]},{"id":"P15","sourceFiles":["VERT_15_UBONGO.stl"],"cubes":[[0,1,0],[1,0,0],[1,1,0],[1,2,0]]},{"id":"P16","sourceFiles":["VERT_16_UBONGO.stl"],"cubes":[[0,0,0],[1,0,0],[1,1,0],[1,2,0]]},{"id":"P17","sourceFiles":["thingiverse_5072592/1red.STL"],"cubes":[[0,0,0],[0,1,0]]},{"id":"P18","sourceFiles":["JAUNE_1_UBONGO.stl","Ubongo_3D_3Layers.3mf/manual-brown-layers-100-111-000-010"],"cubes":[[0,1,0],[1,0,0],[1,1,0],[2,1,0],[2,1,1]]}];
 
-let pieces = structuredClone(BUILTIN_THINGIVERSE_PIECES);
+const BUILTIN_2D_PIECES = [
+  { id: "D01", color: "#b46e08", cells: [[0, 0], [0, 1], [0, 2], [1, 2], [0, 3]] },
+  { id: "D02", color: "#7f2d89", cells: [[0, 0], [0, 1]] },
+  { id: "D03", color: "#68aa1b", cells: [[0, 0], [1, 0], [0, 1], [0, 2]] },
+  { id: "D04", color: "#0b9827", cells: [[1, 0], [0, 1], [1, 1], [0, 2], [1, 2]] },
+  { id: "D05", color: "#bfd218", cells: [[0, 0], [0, 1], [1, 1], [0, 2]] },
+  { id: "D06", color: "#069a79", cells: [[0, 0], [1, 0], [1, 1]] },
+  { id: "D07", color: "#d33420", cells: [[0, 0], [1, 0], [0, 1], [1, 1]] },
+  { id: "D08", color: "#278fc6", cells: [[0, 0], [0, 1], [1, 1], [1, 2]] },
+  { id: "D09", color: "#cbb525", cells: [[0, 0], [1, 0], [1, 1], [1, 2], [2, 2]] },
+  { id: "D10", color: "#1aa9d1", cells: [[0, 0], [0, 1], [0, 2]] },
+  { id: "D11", color: "#846629", cells: [[0, 0], [0, 1], [0, 2], [0, 3]] },
+  { id: "D12", color: "#b83e9b", cells: [[0, 0], [0, 1], [1, 1], [2, 1], [3, 1]] },
+];
+
+function hydrate2dPieces(items) {
+  return items.map((piece) => ({
+    ...piece,
+    mode: MODE_2D,
+    cells: piece.cells.map(([x, y]) => [x, y]),
+    cubes: piece.cells.map(([x, y]) => [x, y, 0]),
+  }));
+}
+
+var piecesByMode = {
+  [MODE_2D]: hydrate2dPieces(structuredClone(BUILTIN_2D_PIECES)),
+  [MODE_3D]: structuredClone(BUILTIN_THINGIVERSE_PIECES),
+};
+var activeLibrariesByMode = {
+  [MODE_2D]: "12 фигур с фотографии",
+  [MODE_3D]: "Thingiverse 6534722 + 5072592 (встроенная)",
+};
+let pieces = piecesByMode[appMode];
 let lastCard = null;
 var generatedCards = [];
 var selectedPrintCardIds = [];
 var generatedCardSequence = 0;
 const MAX_GENERATED_CARDS = 6;
-let activeLibrary = "thingiverse_6534722+5072592 builtin";
-var generationHistory = { targets: [], targetFootprints: [], comboSets: [], volumes: [], pieceCounts: {} };
+let activeLibrary = activeLibrariesByMode[appMode];
+var generationHistoriesByMode = {
+  [MODE_2D]: { targets: [], targetFootprints: [], taskVariants: [], comboSets: [], volumes: [], pieceCounts: {} },
+  [MODE_3D]: { targets: [], targetFootprints: [], taskVariants: [], comboSets: [], volumes: [], pieceCounts: {} },
+};
+var generationHistory = generationHistoriesByMode[appMode];
+var runtimeByMode = {
+  [MODE_2D]: { generatedCards: [], selectedPrintCardIds: [], lastCard: null, manualA: new Set(), manualB: new Set(), pieceCount: 3, levels: 1 },
+  [MODE_3D]: { generatedCards: [], selectedPrintCardIds: [], lastCard: null, manualA: new Set(), manualB: new Set(), pieceCount: 3, levels: 2 },
+};
 var randomSeedMode = false;
-var manualLayerCellsA = new Set();
-var manualLayerCellsB = new Set();
+var manualLayerCellsA = runtimeByMode[appMode].manualA;
+var manualLayerCellsB = runtimeByMode[appMode].manualB;
 var pieceColorsById = loadPieceColors();
 var pieceSelectionById = loadPieceSelection();
 var customPieceSelectionById = loadCustomPieceSelection();
+
+function loadAppMode() {
+  try {
+    const saved = globalThis.localStorage?.getItem(APP_MODE_STORAGE_KEY);
+    return saved === MODE_3D ? MODE_3D : MODE_2D;
+  } catch {
+    return MODE_2D;
+  }
+}
+
+function storageKeyForMode(kind, mode = appMode) {
+  return `ubongo_${mode}_${kind}_v1`;
+}
+
+function is2dMode(mode = appMode) {
+  return mode === MODE_2D;
+}
 
 function mulberry32(a) {
   return function rng() {
@@ -146,7 +221,7 @@ function visiblePieces() {
 
 function isPieceIncludedInMap(id, selectionMap) {
   if (typeof selectionMap[id] === "boolean") return selectionMap[id];
-  return !DEFAULT_EXCLUDED_PIECES.has(id);
+  return is2dMode() || !DEFAULT_EXCLUDED_PIECES.has(id);
 }
 
 function isPieceIncluded(id) {
@@ -178,6 +253,7 @@ function isOldThingiversePiece(piece) {
 }
 
 function pieceIdsForPreset(presetId) {
+  if (is2dMode()) return pieces.map((piece) => piece.id);
   if (presetId === "thingiverse6534722") {
     const ids = pieces.filter(isOldThingiversePiece).map((piece) => piece.id);
     for (const id of OLD_EDITION_EXTRA_PIECE_IDS) {
@@ -222,9 +298,110 @@ function emptyGenerationHistory() {
 
 function resetGenerationSession() {
   generationHistory = emptyGenerationHistory();
+  generationHistoriesByMode[appMode] = generationHistory;
   generatedCards = [];
   selectedPrintCardIds = [];
+  runtimeByMode[appMode].generatedCards = generatedCards;
+  runtimeByMode[appMode].selectedPrintCardIds = selectedPrintCardIds;
+  runtimeByMode[appMode].lastCard = null;
+  lastCard = null;
   renderGeneratedCardList();
+}
+
+function serializePieceLibraryForEditor(items = pieces, mode = appMode) {
+  if (!is2dMode(mode)) return JSON.stringify(items, null, 2);
+  return JSON.stringify(items.map((piece) => ({
+    id: piece.id,
+    color: piece.color || DEFAULT_PIECE_COLORS[piece.id],
+    cells: piece.cells.map(([x, y]) => [x, y]),
+  })), null, 2);
+}
+
+function stashCurrentModeRuntime() {
+  const runtime = runtimeByMode[appMode];
+  runtime.generatedCards = generatedCards;
+  runtime.selectedPrintCardIds = selectedPrintCardIds;
+  runtime.lastCard = lastCard;
+  runtime.manualA = manualLayerCellsA;
+  runtime.manualB = manualLayerCellsB;
+  runtime.pieceCount = Number(document.getElementById("pieceCount")?.value || runtime.pieceCount);
+  runtime.levels = Number(document.getElementById("levels")?.value || runtime.levels);
+  generationHistoriesByMode[appMode] = generationHistory;
+  piecesByMode[appMode] = pieces;
+  activeLibrariesByMode[appMode] = activeLibrary;
+}
+
+function activateMode(nextMode, options = {}) {
+  const normalizedMode = nextMode === MODE_3D ? MODE_3D : MODE_2D;
+  if (!options.initial) stashCurrentModeRuntime();
+  appMode = normalizedMode;
+  try {
+    globalThis.localStorage?.setItem(APP_MODE_STORAGE_KEY, appMode);
+  } catch {
+    // Режим всё равно переключается, даже если хранилище недоступно.
+  }
+
+  PIECE_COLORS_STORAGE_KEY = storageKeyForMode("colors", appMode);
+  PIECE_SELECTION_STORAGE_KEY = storageKeyForMode("selection", appMode);
+  PIECE_CUSTOM_SELECTION_STORAGE_KEY = storageKeyForMode("custom_selection", appMode);
+  pieces = piecesByMode[appMode];
+  activeLibrary = activeLibrariesByMode[appMode];
+  generationHistory = generationHistoriesByMode[appMode];
+  const runtime = runtimeByMode[appMode];
+  generatedCards = runtime.generatedCards;
+  selectedPrintCardIds = runtime.selectedPrintCardIds;
+  lastCard = runtime.lastCard;
+  manualLayerCellsA = runtime.manualA;
+  manualLayerCellsB = runtime.manualB;
+  pieceColorsById = loadPieceColors();
+  pieceSelectionById = loadPieceSelection();
+  customPieceSelectionById = loadCustomPieceSelection();
+
+  const twoDimensional = is2dMode();
+  const levelsInput = document.getElementById("levels");
+  const pieceCountInput = document.getElementById("pieceCount");
+  if (levelsInput) levelsInput.value = String(twoDimensional ? 1 : runtime.levels || 2);
+  if (pieceCountInput) {
+    pieceCountInput.min = twoDimensional ? "3" : "2";
+    pieceCountInput.max = twoDimensional ? "7" : "8";
+    pieceCountInput.value = String(twoDimensional ? Math.max(3, Math.min(7, runtime.pieceCount || 3)) : runtime.pieceCount || 3);
+  }
+  document.getElementById("levelsField")?.classList?.toggle("hidden", twoDimensional);
+  document.getElementById("piecePresetBar")?.classList?.toggle("hidden", twoDimensional);
+  document.getElementById("mode2d")?.setAttribute?.("aria-pressed", String(twoDimensional));
+  document.getElementById("mode3d")?.setAttribute?.("aria-pressed", String(!twoDimensional));
+  document.getElementById("mode2d")?.classList?.toggle("active", twoDimensional);
+  document.getElementById("mode3d")?.classList?.toggle("active", !twoDimensional);
+  if (document.body?.setAttribute) document.body.setAttribute("data-mode", appMode);
+
+  const title = document.getElementById("appTitle");
+  const subtitle = document.getElementById("appSubtitle");
+  const libraryHint = document.getElementById("libraryHint");
+  const formatHint = document.getElementById("pieceLibraryFormatHint");
+  const resetPieces = document.getElementById("resetPieces");
+  const layersTitle = document.getElementById("layersTitle");
+  if (title) title.textContent = `Генератор заданий Ubongo ${twoDimensional ? "2D" : "3D"}`;
+  if (subtitle) subtitle.textContent = twoDimensional
+    ? "Один контур и шесть разных наборов из 12 фигур с фотографии."
+    : "Один 3D-объём и шесть вариантов из реальных деталей Thingiverse.";
+  if (libraryHint) libraryHint.innerHTML = twoDimensional
+    ? "В режиме 2D используются 12 фигур, восстановленных по фотографии."
+    : "Сначала приложение загружает <code>data/pieces_thingiverse_6534722.json</code>. Если браузер блокирует локальную загрузку, выберите JSON вручную.";
+  if (formatHint) formatHint.textContent = twoDimensional
+    ? "Формат 2D: идентификатор, цвет и список целочисленных координат клеток. Разрешены повороты и отражения."
+    : "Формат 3D: идентификатор и список целочисленных координат кубиков. Разрешены пространственные повороты.";
+  if (resetPieces) resetPieces.textContent = twoDimensional ? "Вернуть 12 фигур с фотографии" : "Вернуть встроенные детали Thingiverse";
+  if (layersTitle) layersTitle.textContent = twoDimensional ? "Целевой контур" : "Целевой объём по слоям";
+
+  const editor = document.getElementById("pieces");
+  if (editor) editor.value = serializePieceLibraryForEditor();
+  renderManualLayerEditor();
+  renderPieceColorControls();
+  renderGeneratedCardList();
+  const restoredCard = lastCard;
+  clearCard();
+  if (restoredCard) renderCard(restoredCard, { skipHistory: true });
+  setStatus(twoDimensional ? "Режим 2D готов: выберите от 3 до 7 деталей и создайте карточку." : "Режим 3D готов.");
 }
 
 function canonicalPiecesForCard(card) {
@@ -334,9 +511,9 @@ function incompleteGenerationFailureMessage() {
 
 function generationProgressMessage() {
   if (!currentGenerationAttempt || !currentGenerationAttemptBudget) {
-    return "Generating: searching for a board and matching piece combinations...";
+    return "Генерация: ищем контур и подходящие наборы деталей…";
   }
-  return `Generating: trying candidate card ${currentGenerationAttempt} of ${currentGenerationAttemptBudget}...`;
+  return `Генерация: вариант карточки ${currentGenerationAttempt} из ${currentGenerationAttemptBudget}…`;
 }
 
 function autoTargetSearchLimit(targetCount, attempts) {
@@ -483,6 +660,30 @@ function rotations(cubes) {
   return out;
 }
 
+function orientations2d(cells) {
+  const transforms = [
+    ([x, y]) => [x, y],
+    ([x, y]) => [-y, x],
+    ([x, y]) => [-x, -y],
+    ([x, y]) => [y, -x],
+    ([x, y]) => [-x, y],
+    ([x, y]) => [-y, -x],
+    ([x, y]) => [x, -y],
+    ([x, y]) => [y, x],
+  ];
+  const seen = new Set();
+  const out = [];
+  for (const transform of transforms) {
+    const oriented = norm(cells.map(transform).map(([x, y]) => [x, y, 0]));
+    const signature = serialize(oriented);
+    if (!seen.has(signature)) {
+      seen.add(signature);
+      out.push(oriented);
+    }
+  }
+  return out;
+}
+
 function dims(cubes) {
   return [0, 1, 2].map((i) => 1 + Math.max(...cubes.map((c) => c[i])));
 }
@@ -563,6 +764,7 @@ function extrudeSilhouette(cells, levels) {
 }
 
 function selectedTaskCount() {
+  if (is2dMode()) return 1;
   const pieceCount = Number(document.getElementById("pieceCount")?.value || 0);
   return pieceCount === 3 ? 2 : 1;
 }
@@ -587,10 +789,12 @@ function currentTaskBoardDimensions(taskIndex = 0) {
 }
 
 function boardLabelForTaskCount(taskCount) {
+  if (is2dMode()) return "7x5";
   return taskCount === 2 ? "3x5 + 4x5" : "7x5";
 }
 
 function boardLabelForCard(card) {
+  if (card?.mode === MODE_2D) return "7x5";
   const taskCount = card?.tasks?.length || 1;
   return boardLabelForTaskCount(taskCount);
 }
@@ -623,8 +827,19 @@ function selectedTargetCellSize() {
   return value === 13 ? 13 : 14.5;
 }
 
+function modeForCard(card) {
+  if (card?.mode === MODE_2D || card?.mode === MODE_3D) return card.mode;
+  const ids = card?.combos?.flatMap((combo) => combo.pieces || [])
+    || card?.tasks?.flatMap((task) => task.combos?.flatMap((combo) => combo.pieces || []) || [])
+    || [];
+  return ids.some((id) => String(id).startsWith("D")) ? MODE_2D : MODE_3D;
+}
+
 function challengeCodeForCard(card) {
   const pieceCount = card.pieceCount || card.combos?.[0]?.pieces?.length || card.tasks?.[0]?.combos?.[0]?.pieces?.length || 1;
+  if (modeForCard(card) === MODE_2D) {
+    return `2D-${pieceCount}-${formatCardNumber(card.cardNumber)}`;
+  }
   return `${letterForCount(pieceCount)}${letterForCount(card.levels)}-${formatCardNumber(card.cardNumber)}`;
 }
 
@@ -696,7 +911,7 @@ function twoTaskTargetsFitOnCard(tasksOrTargets) {
 
 const TWO_TASK_TARGET_COLLISION_MESSAGE = "Two task targets collide: left target must be at most 3 columns wide, right target must be at most 4 columns wide, mirrored/equivalent contours cannot repeat, and 4-cell rows cannot be on the same or adjacent rows.";
 const INCOMPLETE_GENERATION_FAILURE_MESSAGE = "Could not find a full variant set within the current Generation attempts budget. Try Generate card again, increase attempts, or broaden the active piece set.";
-const SESSION_EXHAUSTED_STATUS_MESSAGE = "No new unique targets left in this session. Start a new session to generate more cards with repeats allowed across sessions.";
+const SESSION_EXHAUSTED_STATUS_MESSAGE = "В этой сессии закончились новые уникальные контуры. Начните новую сессию, чтобы снова разрешить ранее встречавшиеся формы.";
 var currentGenerationAttempt = null;
 var currentGenerationAttemptBudget = null;
 
@@ -712,6 +927,10 @@ function backgroundForCardMode(pieceCount, levels) {
   };
   const key = keyByMode[`${Number(pieceCount)}x${Number(levels)}`] || "green";
   return { key, asset: CARD_BACKGROUNDS[key] };
+}
+
+function backgroundFor2dCard(pieceCount) {
+  return backgroundForCardMode(pieceCount, 2);
 }
 
 function cardLayoutForBackgroundKey(backgroundKey) {
@@ -839,7 +1058,11 @@ function generatedTargetsFor(rng, w, h, levels, volumes, attempts) {
   const targets = [];
   const seen = new Set();
   const requirement = boardFitRequirement(w, h);
-  const randomPerVolume = requirement.required ? Math.min(Math.max(attempts, 220), 1100) : Math.min(Math.max(attempts, 140), 700);
+  const randomPerVolume = is2dMode()
+    ? Math.min(Math.max(attempts, 36), 90)
+    : requirement.required
+      ? Math.min(Math.max(attempts, 220), 1100)
+      : Math.min(Math.max(attempts, 140), 700);
 
   function addTarget(silhouette, id) {
     const target = extrudeSilhouette(silhouette, levels);
@@ -864,7 +1087,7 @@ function generatedTargetsFor(rng, w, h, levels, volumes, attempts) {
       addTarget(silhouette, "random-growth");
     }
 
-    if (targets.length - beforeVolume < Math.min(20, attempts)) {
+    if (!is2dMode() && targets.length - beforeVolume < Math.min(20, attempts)) {
       for (const silhouette of connectedSilhouettes(w, h, area, 800)) {
         const target = extrudeSilhouette(silhouette, levels);
         const stats = targetLayerStats(target);
@@ -874,7 +1097,7 @@ function generatedTargetsFor(rng, w, h, levels, volumes, attempts) {
       }
     }
 
-    if (Math.min(w, h) >= 3) {
+    if (!is2dMode() && Math.min(w, h) >= 3) {
       for (const silhouette of connectedSilhouettes(w, h, area, 800)) {
         const target = extrudeSilhouette(silhouette, levels);
         const stats = targetLayerStats(target);
@@ -953,7 +1176,10 @@ function displayPiecesForCombo(combo, card, slotIndex) {
 
 function makePlacementsForPiece(piece, w, h, l, targetSet = null) {
   const out = [];
-  for (const rotation of rotations(piece.cubes)) {
+  const orientations = piece.mode === MODE_2D || piece.cells
+    ? orientations2d(piece.cells || piece.cubes.map(([x, y]) => [x, y]))
+    : rotations(piece.cubes);
+  for (const rotation of orientations) {
     const [dw, dh, dl] = dims(rotation);
     for (let x = 0; x <= w - dw; x++) {
       for (let y = 0; y <= h - dh; y++) {
@@ -1183,43 +1409,90 @@ function cellsFromSolution(solution) {
   return out.sort((a, b) => key(a).localeCompare(key(b)));
 }
 
-function pieceById(id) {
-  return pieces.find((p) => p.id === id);
+function pieceById(id, mode = appMode) {
+  return (piecesByMode[mode] || pieces).find((p) => p.id === id);
 }
 
-function validatePieces(parsed) {
-  if (!Array.isArray(parsed)) throw new Error("Piece library must be an array.");
-  for (const piece of parsed) {
-    if (!piece.id || !Array.isArray(piece.cubes)) throw new Error("Every piece needs id and cubes.");
+function validatePieces(parsed, mode = appMode) {
+  if (!Array.isArray(parsed)) throw new Error("Библиотека деталей должна быть массивом.");
+  const ids = new Set();
+  const validated = parsed.map((piece) => {
+    if (!piece?.id || ids.has(piece.id)) throw new Error(`У каждой детали должен быть уникальный id: ${piece?.id || "без id"}.`);
+    ids.add(piece.id);
+    if (is2dMode(mode)) {
+      if (!Array.isArray(piece.cells) || piece.cells.length === 0) throw new Error(`Для детали ${piece.id} нужен непустой список cells.`);
+      for (const cell of piece.cells) {
+        if (!Array.isArray(cell) || cell.length !== 2 || cell.some((value) => !Number.isInteger(value))) {
+          throw new Error(`Некорректная координата клетки в детали ${piece.id}.`);
+        }
+      }
+      const cubes = norm(piece.cells.map(([x, y]) => [x, y, 0]));
+      if (new Set(cubes.map(key)).size !== cubes.length) throw new Error(`В детали ${piece.id} есть повторяющиеся клетки.`);
+      const cells = cubes.map(([x, y]) => [x, y]);
+      if (!connected2d(cells)) throw new Error(`Клетки детали ${piece.id} должны быть соединены сторонами.`);
+      return {
+        id: String(piece.id),
+        mode: MODE_2D,
+        color: /^#[0-9a-f]{6}$/i.test(piece.color || "") ? piece.color : DEFAULT_PIECE_COLORS[piece.id] || "#247c8a",
+        cells,
+        cubes,
+      };
+    }
+    if (!Array.isArray(piece.cubes) || piece.cubes.length === 0) throw new Error(`Для детали ${piece.id} нужен непустой список cubes.`);
     for (const cube of piece.cubes) {
-      if (!Array.isArray(cube) || cube.length !== 3 || cube.some((v) => !Number.isInteger(v))) {
-        throw new Error(`Invalid cube coordinate in piece ${piece.id}.`);
+      if (!Array.isArray(cube) || cube.length !== 3 || cube.some((value) => !Number.isInteger(value))) {
+        throw new Error(`Некорректная координата кубика в детали ${piece.id}.`);
       }
     }
-  }
-  return parsed;
+    return piece;
+  });
+  return validated;
 }
 
-function setPieces(nextPieces, sourceLabel) {
-  pieces = validatePieces(nextPieces);
+function setPieces(nextPieces, sourceLabel, mode = appMode, options = {}) {
+  const validated = validatePieces(nextPieces, mode);
+  piecesByMode[mode] = validated;
+  activeLibrariesByMode[mode] = sourceLabel;
+  if (mode !== appMode) return validated;
+  pieces = validated;
   activeLibrary = sourceLabel;
-  document.getElementById("pieces").value = JSON.stringify(pieces, null, 2);
+  const editor = document.getElementById("pieces");
+  if (editor) editor.value = serializePieceLibraryForEditor(pieces, mode);
   renderPieceColorControls();
-  setStatus(`Loaded ${pieces.length} pieces from ${sourceLabel}.`);
+  if (!options.silent) setStatus(`Загружено деталей: ${pieces.length}. Источник: ${sourceLabel}.`);
+  return validated;
 }
 
 async function loadDefaultPieces() {
+  let twoDimensionalLoaded = false;
+  try {
+    const response = await fetch(DATA_2D_URL, { cache: "no-store" });
+    if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+    setPieces(await response.json(), "12 фигур с фотографии", MODE_2D, { silent: true });
+    twoDimensionalLoaded = true;
+  } catch {
+    setPieces(structuredClone(BUILTIN_2D_PIECES), "12 фигур с фотографии (встроенные)", MODE_2D, { silent: true });
+  }
   try {
     const response = await fetch(DATA_URL, { cache: "no-store" });
     if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
-    setPieces(await response.json(), "thingiverse_6534722+5072592");
+    setPieces(await response.json(), "Thingiverse 6534722 + 5072592", MODE_3D, { silent: appMode !== MODE_3D });
   } catch (error) {
-    setPieces(structuredClone(BUILTIN_THINGIVERSE_PIECES), "thingiverse_6534722+5072592 builtin");
-    setStatus(`Warning: could not fetch ${DATA_URL}. Using the built-in Thingiverse 6534722+5072592 pieces.`);
+    setPieces(structuredClone(BUILTIN_THINGIVERSE_PIECES), "Thingiverse 6534722 + 5072592 (встроенные)", MODE_3D, { silent: true });
+    if (appMode === MODE_3D) setStatus(`Не удалось загрузить ${DATA_URL}; используются встроенные детали Thingiverse.`);
+  }
+  if (appMode === MODE_2D) {
+    pieces = piecesByMode[MODE_2D];
+    activeLibrary = activeLibrariesByMode[MODE_2D];
+    document.getElementById("pieces").value = serializePieceLibraryForEditor();
+    renderPieceColorControls();
+    setStatus(twoDimensionalLoaded
+      ? "Готово: загружены 12 фигур 2D с фотографии."
+      : "Готово: используются встроенные 12 фигур 2D.");
   }
 }
 
-function loadPiecesFromText(sourceLabel = "text area") {
+function loadPiecesFromText(sourceLabel = "текстовое поле") {
   setPieces(JSON.parse(document.getElementById("pieces").value), sourceLabel);
 }
 
@@ -1229,7 +1502,7 @@ function generateSingleTask(options = {}) {
     ? { w: Number(options.w), h: Number(options.h) }
     : taskBoardDimensions(options.taskIndex ?? 0, taskCount);
   const { w, h } = taskDimensions;
-  const l = +document.getElementById("levels").value;
+  const l = is2dMode() ? 1 : +document.getElementById("levels").value;
   const pieceCount = +document.getElementById("pieceCount").value;
   const comboCount = options.requestedComboCount ?? +document.getElementById("comboCount").value;
   const attempts = +document.getElementById("attempts").value;
@@ -1252,7 +1525,8 @@ function generateSingleTask(options = {}) {
   const possibleVolumes = [...new Set(allSubsets.map((set) => set.reduce((sum, p) => sum + p.cubes.length, 0)))]
     .filter((volume) => {
       if (manualTarget) return volume === manualTarget.length;
-      return volume >= MIN_TARGET_VOLUME && volume / l <= w * h;
+      const minimumVolume = is2dMode() ? MIN_2D_TARGET_AREA : MIN_TARGET_VOLUME;
+      return volume >= minimumVolume && volume / l <= w * h;
     })
     .sort((a, b) => a - b);
   if (!possibleVolumes.length) {
@@ -1266,10 +1540,11 @@ function generateSingleTask(options = {}) {
   if (!manualTarget && fitRequirement.required && maxLayerArea < fitRequirement.minArea) {
     throw new Error(`No target that fits the fixed ${w}x${h} task area is possible with ${pieceCount} pieces. Increase pieces per variant.`);
   }
-  const volumeOrder = manualTarget ? [manualTarget.length] : targetVolumeOrder(rng, possibleVolumes);
+  const orderedVolumes = manualTarget ? [manualTarget.length] : targetVolumeOrder(rng, possibleVolumes);
+  const volumeOrder = !manualTarget && is2dMode() ? orderedVolumes.slice(0, 3) : orderedVolumes;
   const presetTargets = manualTarget ? [] : volumeOrder.flatMap((volume) => shuffle(rng, presetTargetsFor(w, h, l, [volume])));
   const solutionDerivedTargets = manualTarget ? [] : solutionDerivedTargetsFor(rng, w, h, l, volumeOrder, allSubsets, attempts, placementCache, scoringHistory);
-  const generatedTargets = manualTarget ? [] : generatedTargetsFor(rng, w, h, l, volumeOrder, attempts);
+  const generatedTargets = manualTarget ? [] : generatedTargetsFor(rng, w, h, l, volumeOrder, is2dMode() ? Math.min(attempts, 60) : attempts);
   const mixedTargetCandidates = manualTarget ? [{ id: "manual-layer", target: manualTarget }] : mixTargetCandidates(rng, presetTargets, generatedTargets, solutionDerivedTargets, attempts);
   const targetCandidates = mixedTargetCandidates.filter((candidate) =>
     targetFootprintStats(candidate.target).width <= maxFootprintWidth &&
@@ -1290,17 +1565,21 @@ function generateSingleTask(options = {}) {
   setStatus(generationProgressMessage());
   const searchLimit = manualTarget
     ? Math.min(attempts, targetCandidates.length, 260)
-    : autoTargetSearchLimit(targetCandidates.length, attempts);
+    : is2dMode()
+      ? Math.min(targetCandidates.length, Math.max(18, Math.min(36, Math.ceil(attempts / 10))))
+      : autoTargetSearchLimit(targetCandidates.length, attempts);
   for (let a = 0; a < searchLimit; a++) {
     const target = targetCandidates[a].target;
     const targetVol = target.length;
     const candidateSets = shuffle(rng, allSubsets.filter((set) => set.reduce((sum, p) => sum + p.cubes.length, 0) === targetVol));
     const foundCombos = [];
     const seenSets = new Set();
-    const comboSearchLimit = manualTarget ? Math.max(comboCount * 2, 12) : Math.max(comboCount, 6);
+    const comboSearchLimit = manualTarget || is2dMode() ? Math.max(comboCount * 2, 12) : Math.max(comboCount, 6);
     const candidateSetLimit = manualTarget
       ? candidateSets.length
-      : autoComboSetSearchLimit(candidateSets.length, comboCount, pieceCount, attempts);
+      : is2dMode()
+        ? Math.min(candidateSets.length, Math.max(comboCount * 8, 120 + pieceCount * 20))
+        : autoComboSetSearchLimit(candidateSets.length, comboCount, pieceCount, attempts);
     for (let setIndex = 0; setIndex < candidateSetLimit; setIndex++) {
       const set = candidateSets[setIndex];
       const signature = pieceSetSignature(set.map((p) => p.id));
@@ -1386,7 +1665,7 @@ function generateCard() {
   const boardDimensions = boardDimensionsForTaskCount(taskCount);
   const combosPerTask = combosPerTaskForTaskCount(taskCount);
   const manualMode = !!document.getElementById("manualMode")?.checked;
-  const l = +document.getElementById("levels").value;
+  const l = is2dMode() ? 1 : +document.getElementById("levels").value;
   const cardNumber = normalizeCardNumber(document.getElementById("cardNumber")?.value);
   const targetCellSizeMm = selectedTargetCellSize();
 
@@ -1439,6 +1718,7 @@ function generateCard() {
   const firstTask = tasks[0];
   const card = {
     ...taskCards[0],
+    mode: appMode,
     w: boardDimensions.w,
     h: boardDimensions.h,
     target: firstTask.target,
@@ -1509,6 +1789,21 @@ function setStatus(message) {
   document.getElementById("status").textContent = message;
 }
 
+function localizedErrorMessage(message) {
+  const source = String(message || "");
+  if (/Select at least .* pieces/.test(source)) return "Выберите достаточно деталей для генерации.";
+  if (/Not enough pieces/.test(source)) return "В активной библиотеке недостаточно деталей.";
+  if (/Manual layer .*cells must be connected/.test(source)) return "Нарисованный контур должен быть связным по сторонам клеток.";
+  if (/Manual layer volume|cannot be built/.test(source)) return "Площадь нарисованного контура не соответствует доступным наборам деталей.";
+  if (/No exact solution for the drawn/.test(source)) return "Для нарисованного контура не найдено шесть точных наборов деталей.";
+  if (/Only plain rectangular targets/.test(source)) return "Найдены только прямоугольные контуры. Увеличьте число попыток или измените seed.";
+  if (/Could not find enough combinations|Could not find a full/.test(source)) return "Не удалось найти шесть разных наборов для одного контура. Увеличьте число попыток или измените seed.";
+  if (/No new unique targets left/.test(source)) return SESSION_EXHAUSTED_STATUS_MESSAGE;
+  if (/No normal-sized target|No target that fits/.test(source)) return "С выбранными настройками нельзя построить подходящий контур.";
+  if (/Could not find compatible two-task targets|Two task targets collide/.test(source)) return "Не удалось разместить две совместимые 3D-задачи на карточке.";
+  return source;
+}
+
 function showNewSessionAction() {
   document.getElementById("newSession")?.classList.remove("hidden");
 }
@@ -1517,7 +1812,7 @@ function hideNewSessionAction() {
   document.getElementById("newSession")?.classList.add("hidden");
 }
 
-function showGenerationOverlay(message = "Generating a new card...") {
+function showGenerationOverlay(message = "Создаём новую карточку…") {
   const overlay = document.getElementById("generationOverlay");
   const text = document.getElementById("generationOverlayText");
   if (text) text.textContent = message;
@@ -1589,7 +1884,7 @@ function loadCustomPieceSelection() {
 }
 
 function defaultCustomPieceSelection() {
-  const includedIds = new Set(CUSTOM_PRESET_PIECE_IDS);
+  const includedIds = new Set(is2dMode() ? pieces.map((piece) => piece.id) : CUSTOM_PRESET_PIECE_IDS);
   return Object.fromEntries(pieces.map((piece) => [piece.id, includedIds.has(piece.id)]));
 }
 
@@ -1638,6 +1933,7 @@ function drawBoard(container, cells, w, h, z, scale = 28, flipY = false) {
 
 function pieceColor(piece) {
   if (pieceColorsById[piece.id]) return pieceColorsById[piece.id];
+  if (/^#[0-9a-f]{6}$/i.test(piece.color || "")) return piece.color;
   if (DEFAULT_PIECE_COLORS[piece.id]) return DEFAULT_PIECE_COLORS[piece.id];
   const source = (piece.sourceFiles || []).join(" ").toUpperCase();
   if (source.includes("JAUNE") || source.includes("YELLOW")) return "#f2c812";
@@ -1739,6 +2035,126 @@ function drawPiece3d(container, cubes, options = {}) {
   return svg;
 }
 
+function normalized2dCells(pieceOrCells) {
+  const source = Array.isArray(pieceOrCells)
+    ? pieceOrCells
+    : pieceOrCells?.cells || pieceOrCells?.cubes?.map(([x, y]) => [x, y]) || [];
+  if (!source.length) return [];
+  const minX = Math.min(...source.map(([x]) => x));
+  const minY = Math.min(...source.map(([, y]) => y));
+  return source
+    .map(([x, y]) => [x - minX, y - minY])
+    .sort((a, b) => a[1] - b[1] || a[0] - b[0]);
+}
+
+function dimensions2d(cells) {
+  const normalized = normalized2dCells(cells);
+  return {
+    columns: normalized.length ? Math.max(...normalized.map(([x]) => x)) + 1 : 1,
+    rows: normalized.length ? Math.max(...normalized.map(([, y]) => y)) + 1 : 1,
+  };
+}
+
+function rotate2dQuarterTurn(cells) {
+  return normalized2dCells(cells.map(([x, y]) => [-y, x]));
+}
+
+function minimize2dPreviewHeight(pieceOrCells) {
+  let candidate = normalized2dCells(pieceOrCells);
+  let best = candidate;
+  let bestRows = dimensions2d(best).rows;
+  for (let turn = 1; turn < 4; turn++) {
+    candidate = rotate2dQuarterTurn(candidate);
+    const rows = dimensions2d(candidate).rows;
+    if (rows < bestRows) {
+      best = candidate;
+      bestRows = rows;
+    }
+  }
+  return best;
+}
+
+function drawPiece2d(container, pieceOrCells, options = {}) {
+  const cells = options.minimizeHeight
+    ? minimize2dPreviewHeight(pieceOrCells)
+    : normalized2dCells(pieceOrCells);
+  const compact = !!options.compact;
+  const width = options.width || (compact ? 72 : 104);
+  const height = options.height || (compact ? 62 : 88);
+  const baseColor = options.color || pieceOrCells?.color || "#247c8a";
+  const { columns, rows } = dimensions2d(cells);
+  const requestedCellSize = Number(options.cellSize);
+  const cellSize = Number.isFinite(requestedCellSize) && requestedCellSize > 0
+    ? requestedCellSize
+    : Math.max(4, Math.min((width - 8) / columns, (height - 8) / rows));
+  const offsetX = (width - columns * cellSize) / 2;
+  const offsetY = (height - rows * cellSize) / 2;
+  const xmlns = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(xmlns, "svg");
+  svg.setAttribute("class", "piece2dPreview");
+  svg.setAttribute("width", String(width));
+  svg.setAttribute("height", String(height));
+  svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+  svg.setAttribute("data-cell-size", String(cellSize));
+  svg.setAttribute("data-columns", String(columns));
+  svg.setAttribute("data-rows", String(rows));
+  svg.setAttribute("role", "img");
+  svg.setAttribute("aria-label", "Плоская деталь");
+  for (const [x, y] of cells) {
+    const rect = document.createElementNS(xmlns, "rect");
+    rect.setAttribute("class", "piece2dCell");
+    rect.setAttribute("x", String(offsetX + x * cellSize));
+    rect.setAttribute("y", String(offsetY + y * cellSize));
+    rect.setAttribute("width", String(cellSize));
+    rect.setAttribute("height", String(cellSize));
+    rect.setAttribute("fill", baseColor);
+    svg.appendChild(rect);
+  }
+  container.appendChild(svg);
+  return svg;
+}
+
+function drawSolution2d(container, solution, options = {}) {
+  const width = options.width || 220;
+  const height = options.height || 160;
+  const placedCells = (solution || []).flatMap((placement) =>
+    placement.cubes.map(([x, y]) => ({ x, y, id: placement.id })));
+  const minX = placedCells.length ? Math.min(...placedCells.map((cell) => cell.x)) : 0;
+  const maxX = placedCells.length ? Math.max(...placedCells.map((cell) => cell.x)) : 0;
+  const minY = placedCells.length ? Math.min(...placedCells.map((cell) => cell.y)) : 0;
+  const maxY = placedCells.length ? Math.max(...placedCells.map((cell) => cell.y)) : 0;
+  const columns = maxX - minX + 1;
+  const rows = maxY - minY + 1;
+  const cellSize = Math.max(4, Math.min((width - 12) / columns, (height - 12) / rows));
+  const offsetX = (width - columns * cellSize) / 2;
+  const offsetY = (height - rows * cellSize) / 2;
+  const xmlns = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(xmlns, "svg");
+  svg.setAttribute("class", "solution2dPreview");
+  svg.setAttribute("width", String(width));
+  svg.setAttribute("height", String(height));
+  svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+  svg.setAttribute("role", "img");
+  svg.setAttribute("aria-label", "Собранное решение 2D");
+  for (const cell of placedCells) {
+    const rect = document.createElementNS(xmlns, "rect");
+    rect.setAttribute("class", "solution2dCell");
+    rect.setAttribute("data-piece-id", cell.id);
+    rect.setAttribute("x", String(offsetX + (cell.x - minX) * cellSize));
+    rect.setAttribute("y", String(offsetY + (cell.y - minY) * cellSize));
+    rect.setAttribute("width", String(cellSize));
+    rect.setAttribute("height", String(cellSize));
+    rect.setAttribute("fill", pieceColor(pieceById(cell.id, MODE_2D) || { id: cell.id }));
+    svg.appendChild(rect);
+  }
+  container.appendChild(svg);
+  return svg;
+}
+
+function drawSolutionPreview(container, solution, mode = appMode, options = {}) {
+  return is2dMode(mode) ? drawSolution2d(container, solution, options) : drawSolution3d(container, solution, options);
+}
+
 function textColorForBackground(hex) {
   const color = (hex || "#000000").replace("#", "");
   const value = parseInt(color.length === 3 ? color.split("").map((ch) => ch + ch).join("") : color, 16);
@@ -1838,10 +2254,14 @@ function createPiecePreview(piece, compact = false) {
   wrap.className = compact ? "pieceMini compactPiece" : "pieceMini";
   const title = document.createElement("div");
   title.className = "pieceMiniTitle";
-  title.textContent = `${piece.id} (${piece.cubes.length})`;
+  title.textContent = `${piece.id} (${piece.cells?.length || piece.cubes.length})`;
   wrap.appendChild(title);
 
-  drawPiece3d(wrap, visualCubesForPiece(piece), { compact, color: pieceColor(piece) });
+  if (piece.mode === MODE_2D || piece.cells) {
+    drawPiece2d(wrap, piece, { compact, color: pieceColor(piece) });
+  } else {
+    drawPiece3d(wrap, visualCubesForPiece(piece), { compact, color: pieceColor(piece) });
+  }
   return wrap;
 }
 
@@ -1927,7 +2347,7 @@ function createGameLevelBadge(levels) {
   const badge = document.createElement("div");
   badge.className = "gameLevelBadge";
   badge.setAttribute("data-level-count", String(levelCount));
-  badge.setAttribute("aria-label", `${levelCount} levels high`);
+  badge.setAttribute("aria-label", `Высота: ${levelCount} уровня`);
 
   const xmlns = "http://www.w3.org/2000/svg";
   const svg = document.createElementNS(xmlns, "svg");
@@ -1958,15 +2378,18 @@ function createGameCardCode(card) {
   const badge = document.createElement("div");
   badge.className = "gameCardCode";
   badge.textContent = code;
-  badge.setAttribute("aria-label", `Challenge ${code}`);
+  badge.setAttribute("aria-label", `Задание ${code}`);
   return badge;
 }
 
 function populateGameCardView(view, card) {
   view.innerHTML = "";
+  const cardMode = modeForCard(card);
+  const twoDimensional = cardMode === MODE_2D;
   const cardPieceCount = card.pieceCount || card.combos?.[0]?.pieces?.length || card.tasks?.[0]?.combos?.[0]?.pieces?.length || 0;
-  const background = backgroundForCardMode(cardPieceCount, card.levels);
+  const background = twoDimensional ? backgroundFor2dCard(cardPieceCount) : backgroundForCardMode(cardPieceCount, card.levels);
   const layout = cardLayoutForBackgroundKey(background.key);
+  view.setAttribute("data-mode", cardMode);
   view.setAttribute("data-background-key", background.key);
   view.setAttribute("data-card-size", layout.key);
   view.style.setProperty("--game-card-width", layout.width);
@@ -1983,11 +2406,11 @@ function populateGameCardView(view, card) {
   view.appendChild(createGameCardCode(card));
 
   const tasks = card.tasks || [{ target: card.target, combos: card.combos }];
-  const targetCellSize = Number(card.targetCellSizeMm) === 13 ? 13 : 14.5;
+  const targetCellSize = twoDimensional ? 13 : Number(card.targetCellSizeMm) === 13 ? 13 : 14.5;
   tasks.forEach((task, taskIndex) => {
     view.appendChild(createGameTargetMap(task.target, taskIndex, tasks.length, targetCellSize));
   });
-  view.appendChild(createGameLevelBadge(card.levels));
+  if (!twoDimensional) view.appendChild(createGameLevelBadge(card.levels));
 
   const pieceSlots = document.createElement("div");
   pieceSlots.className = "gamePieceSlots";
@@ -2006,12 +2429,23 @@ function populateGameCardView(view, card) {
       slot.setAttribute("data-pieces", combo.pieces.join(","));
       slot.setAttribute("data-piece-count", String(combo.pieces.length));
       displayPiecesForCombo(combo, card, index).forEach((id) => {
-        const piece = pieceById(id);
+        const piece = pieceById(id, cardMode);
         if (!piece) return;
         const preview = document.createElement("div");
         preview.className = "gamePiecePreview";
         preview.setAttribute("data-piece-id", id);
-        drawPiece3d(preview, visualCubesForPiece(piece), { compact: true, color: pieceColor(piece), width: 40, height: 34 });
+        if (twoDimensional) {
+          drawPiece2d(preview, piece, {
+            compact: true,
+            color: pieceColor(piece),
+            width: 50,
+            height: 30,
+            cellSize: 10,
+            minimizeHeight: true,
+          });
+        } else {
+          drawPiece3d(preview, visualCubesForPiece(piece), { compact: true, color: pieceColor(piece), width: 40, height: 34 });
+        }
         slot.appendChild(preview);
       });
     }
@@ -2043,7 +2477,7 @@ function populateGameCardView(view, card) {
 function createGameCardView(card) {
   const view = document.createElement("div");
   view.className = "gameCardView";
-  view.setAttribute("aria-label", "Game challenge card");
+  view.setAttribute("aria-label", "Карточка задания");
   populateGameCardView(view, card);
   return view;
 }
@@ -2070,7 +2504,7 @@ function selectedPrintCards() {
 
 function updatePrintSelectionCount() {
   const count = document.getElementById("printSelectionCount");
-  if (count) count.textContent = `Selected for print: ${selectedPrintCardIds.length}/2`;
+  if (count) count.textContent = `Выбрано для печати: ${selectedPrintCardIds.length}/2`;
 }
 
 function renderGeneratedCardList() {
@@ -2108,11 +2542,13 @@ function renderGeneratedCardList() {
 
     const meta = document.createElement("div");
     meta.className = "generatedCardMeta";
-    meta.textContent = `seed ${card.seed} | ${cardPieceCount} pieces x ${card.levels} levels | ${boardLabelForCard(card)}`;
+    meta.textContent = modeForCard(card) === MODE_2D
+      ? `seed ${card.seed} | ${cardPieceCount} детали | поле ${boardLabelForCard(card)}`
+      : `seed ${card.seed} | ${cardPieceCount} деталей × ${card.levels} уровня | ${boardLabelForCard(card)}`;
 
     const tag = document.createElement("div");
     tag.className = "generatedCardTag";
-    tag.textContent = selected ? "Selected for print" : "";
+    tag.textContent = selected ? "Выбрано для печати" : "";
 
     info.appendChild(code);
     info.appendChild(meta);
@@ -2157,6 +2593,12 @@ function cardTasks(card) {
   return card.tasks || [{ target: card.target, combos: card.combos, targetMode: card.targetMode, requestedComboCount: card.requestedComboCount, incomplete: card.incomplete }];
 }
 
+function localizedTargetMode(mode) {
+  if (mode === "auto") return "авто";
+  if (mode === "equal-layer") return "ручной контур";
+  return mode;
+}
+
 function createPrintSolutionBlock(card) {
   const block = document.createElement("div");
   block.className = "printSolutionBlock";
@@ -2164,7 +2606,7 @@ function createPrintSolutionBlock(card) {
   block.setAttribute("data-challenge-code", code);
 
   const title = document.createElement("h3");
-  title.textContent = `Solutions ${code}`;
+  title.textContent = `Решения ${code}`;
   block.appendChild(title);
 
   const grid = document.createElement("div");
@@ -2178,12 +2620,12 @@ function createPrintSolutionBlock(card) {
 
     const label = document.createElement("span");
     label.className = "printSolutionLabel";
-    label.textContent = cardTasks(card).length > 1 ? `T${taskIndex + 1}-${comboIndex + 1}` : `V${comboIndex + 1}`;
+    label.textContent = cardTasks(card).length > 1 ? `З${taskIndex + 1}-${comboIndex + 1}` : `В${comboIndex + 1}`;
     item.appendChild(label);
 
     const model = document.createElement("div");
     model.className = "printSolutionMiniModel";
-    drawSolution3d(model, combo.solution, { width: 104, height: 74 });
+    drawSolutionPreview(model, combo.solution, modeForCard(card), { width: 104, height: 74 });
     item.appendChild(model);
     grid.appendChild(item);
   }));
@@ -2202,7 +2644,10 @@ function renderPrintSheet(cards = selectedPrintCards()) {
     const package = document.createElement("div");
     package.className = "printCardPackage";
     const cardPieceCount = card.pieceCount || card.combos?.[0]?.pieces?.length || card.tasks?.[0]?.combos?.[0]?.pieces?.length || 0;
-    const layout = cardLayoutForBackgroundKey(backgroundForCardMode(cardPieceCount, card.levels).key);
+    const background = modeForCard(card) === MODE_2D
+      ? backgroundFor2dCard(cardPieceCount)
+      : backgroundForCardMode(cardPieceCount, card.levels);
+    const layout = cardLayoutForBackgroundKey(background.key);
     package.style.setProperty("--print-card-height", layout.height);
     const view = createGameCardView(card);
     view.setAttribute("data-print-card-index", String(index));
@@ -2215,14 +2660,14 @@ function renderPrintSheet(cards = selectedPrintCards()) {
 function printReadyCards() {
   const cards = selectedPrintCards();
   if (cards.length < 1) {
-    setStatus("Select at least one generated card for printing.");
+    setStatus("Выберите хотя бы одну созданную карточку для печати.");
     document.getElementById("status")?.scrollIntoView?.({ block: "center", behavior: "smooth" });
     return false;
   }
   renderPrintSheet(cards);
   const cardCount = cards.length;
   document.body.classList.add("printPreviewMode");
-  setStatus(`Print preview ready for ${cardCount} ${cardCount === 1 ? "card" : "cards"}. Press Print or Export PDF.`);
+  setStatus(`Предпросмотр готов: ${cardCount} ${cardCount === 1 ? "карточка" : "карточки"}. Нажмите «Печать» или «Экспорт PDF».`);
   document.getElementById("printSheet")?.scrollIntoView?.({ block: "start", behavior: "smooth" });
   void document.getElementById("printSheet")?.offsetHeight;
   return true;
@@ -2231,33 +2676,33 @@ function printReadyCards() {
 function printNow() {
   const sheet = document.getElementById("printSheet");
   if (!sheet || !sheet.children.length) {
-    setStatus("Select at least one generated card for printing.");
+    setStatus("Выберите хотя бы одну созданную карточку для печати.");
     return false;
   }
   window.print();
-  setStatus("Print requested from the current preview. If no dialog opens in this browser, use Chrome or Ctrl+P.");
+  setStatus("Отправлено на печать. Если диалог не открылся, используйте Chrome или Ctrl+P.");
   return true;
 }
 
 async function downloadPrintSheetPdf(cards = selectedPrintCards()) {
   const printableCards = cards.slice(0, 2);
   if (!printableCards.length) {
-    setStatus("Select at least one generated card for printing.");
+    setStatus("Выберите хотя бы одну созданную карточку для печати.");
     return false;
   }
   if (typeof html2canvas !== "function" || !globalThis.jspdf?.jsPDF) {
-    setStatus("PDF export is unavailable because the local PDF libraries did not load.");
+    setStatus("Экспорт PDF недоступен: локальные библиотеки PDF не загрузились.");
     return false;
   }
 
   renderPrintSheet(cards);
   const sheet = document.getElementById("printSheet");
   if (!sheet) {
-    setStatus("PDF export is unavailable because the print sheet is missing.");
+    setStatus("Экспорт PDF недоступен: не найден печатный лист.");
     return false;
   }
 
-  showGenerationOverlay("Preparing PDF...");
+  showGenerationOverlay("Подготовка PDF…");
   try {
     await nextFrame();
     await nextFrame();
@@ -2279,7 +2724,12 @@ async function downloadPrintSheetPdf(cards = selectedPrintCards()) {
       const pdfUrl = globalThis.URL.createObjectURL(pdfBlob);
       const downloadLink = document.createElement("a");
       downloadLink.href = pdfUrl;
-      downloadLink.download = "ubongo3d-cards.pdf";
+      const pdfFilename = printableCards.every((card) => modeForCard(card) === MODE_2D)
+        ? "ubongo2d-cards.pdf"
+        : printableCards.every((card) => modeForCard(card) === MODE_3D)
+          ? "ubongo3d-cards.pdf"
+          : "ubongo-cards.pdf";
+      downloadLink.download = pdfFilename;
       downloadLink.rel = "noopener";
       downloadLink.style.display = "none";
       document.body.appendChild(downloadLink);
@@ -2288,15 +2738,16 @@ async function downloadPrintSheetPdf(cards = selectedPrintCards()) {
       const popup = window.open(pdfUrl, "_blank");
       setTimeout(() => globalThis.URL.revokeObjectURL(pdfUrl), 60_000);
       setStatus(popup
-        ? "PDF ready. If the download did not start, save it from the opened PDF tab."
-        : "PDF ready. If the download did not start, allow popups or try in Chrome.");
+        ? "PDF готов. Если загрузка не началась, сохраните файл из открытой вкладки."
+        : "PDF готов. Если загрузка не началась, разрешите всплывающие окна или попробуйте Chrome.");
     } else {
-      pdf.save("ubongo3d-cards.pdf");
-      setStatus("PDF downloaded.");
+      const pdfFilename = printableCards.every((card) => modeForCard(card) === MODE_2D) ? "ubongo2d-cards.pdf" : "ubongo3d-cards.pdf";
+      pdf.save(pdfFilename);
+      setStatus("PDF загружен.");
     }
     return true;
   } catch (error) {
-    setStatus(`Error: ${error.message}`);
+    setStatus(`Ошибка: ${localizedErrorMessage(error.message)}`);
     return false;
   } finally {
     hideGenerationOverlay();
@@ -2310,20 +2761,20 @@ async function exportPdf() {
 function openPrintPage(mode = "print") {
   const sheet = document.getElementById("printSheet");
   if (!sheet || !sheet.children.length) {
-    setStatus("Select at least one generated card for printing.");
+    setStatus("Выберите хотя бы одну созданную карточку для печати.");
     return false;
   }
   const popup = window.open("", "_blank");
   if (!popup) {
-    setStatus("Popup blocked. Allow popups for this site or press Ctrl+P on the preview.");
+    setStatus("Всплывающее окно заблокировано. Разрешите его или нажмите Ctrl+P в предпросмотре.");
     return false;
   }
   const stylesheetHref = document.querySelector('link[rel="stylesheet"]')?.getAttribute("href") || "style.css";
-  const title = "Ubongo 3D print sheet";
-  const primaryAction = "Print";
-  const helperText = "Choose your printer in the print dialog.";
+  const title = "Печатный лист Ubongo";
+  const primaryAction = "Печать";
+  const helperText = "Выберите принтер в системном диалоге печати.";
   const html = `<!doctype html>
-<html lang="en">
+<html lang="ru">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -2351,7 +2802,7 @@ function openPrintPage(mode = "print") {
 <body class="printPreviewMode">
   <div class="standalonePrintToolbar">
     <button type="button" onclick="window.print()">${primaryAction}</button>
-    <button type="button" onclick="window.close()">Close</button>
+    <button type="button" onclick="window.close()">Закрыть</button>
     <span class="standalonePrintHint">${helperText}</span>
   </div>
   ${sheet.outerHTML}
@@ -2361,7 +2812,7 @@ function openPrintPage(mode = "print") {
   popup.document.write(html);
   popup.document.close();
   popup.focus?.();
-  setStatus("Print page opened. Use its Print button or Ctrl+P.");
+  setStatus("Страница печати открыта. Используйте кнопку «Печать» или Ctrl+P.");
   return true;
 }
 
@@ -2376,26 +2827,33 @@ function incrementCardNumberInput() {
 
 function renderCard(card, options = {}) {
   lastCard = card;
+  runtimeByMode[appMode].lastCard = card;
   if (!options.skipHistory) updateGenerationHistory(card);
   document.getElementById("card").classList.remove("hidden");
+  const cardMode = modeForCard(card);
+  const twoDimensional = cardMode === MODE_2D;
   const tasks = card.tasks || [{ target: card.target, combos: card.combos, targetMode: card.targetMode, requestedComboCount: card.requestedComboCount, incomplete: card.incomplete }];
   const modeText = [...new Set(tasks.map((task) => task.targetMode).filter(Boolean))].length
-    ? ` | ${[...new Set(tasks.map((task) => task.targetMode).filter(Boolean))].join("+")}`
+    ? ` | ${[...new Set(tasks.map((task) => localizedTargetMode(task.targetMode)).filter(Boolean))].join("+")}`
     : "";
-  const volumeText = tasks.length > 1 ? `volumes ${tasks.map((task) => task.target.length).join("+")}` : `volume ${card.target.length}`;
-  document.getElementById("meta").textContent = `seed ${card.seed} | ${boardLabelForCard(card)} | ${card.levels} levels | ${volumeText}${modeText} | ${card.activeLibrary}`;
+  const volumeText = tasks.length > 1 ? `объёмы ${tasks.map((task) => task.target.length).join("+")}` : `${twoDimensional ? "площадь" : "объём"} ${card.target.length}`;
+  document.getElementById("meta").textContent = twoDimensional
+    ? `seed ${card.seed} | поле ${boardLabelForCard(card)} | ${volumeText}${modeText} | ${card.activeLibrary}`
+    : `seed ${card.seed} | ${boardLabelForCard(card)} | уровней: ${card.levels} | ${volumeText}${modeText} | ${card.activeLibrary}`;
   renderGameCardView(card);
 
   const layers = document.getElementById("layers");
   layers.innerHTML = "";
   tasks.forEach((task, taskIndex) => {
-    for (let z = 0; z < card.levels; z++) {
+    for (let z = 0; z < (twoDimensional ? 1 : card.levels); z++) {
       const taskWidth = task.w ?? card.w;
       const taskHeight = task.h ?? card.h;
       const wrap = document.createElement("div");
       wrap.className = "layer";
       wrap.setAttribute("data-task-index", String(taskIndex));
-      wrap.innerHTML = `<h4>Task ${taskIndex + 1} layer ${z + 1}</h4>`;
+      wrap.innerHTML = twoDimensional
+        ? "<h4>Контур задачи</h4>"
+        : `<h4>Задача ${taskIndex + 1}, слой ${z + 1}</h4>`;
       drawBoard(wrap, task.target, taskWidth, taskHeight, z);
       layers.appendChild(wrap);
     }
@@ -2403,7 +2861,7 @@ function renderCard(card, options = {}) {
 
   const allCombos = tasks.flatMap((task) => task.combos);
   const requestedComboCount = tasks.reduce((sum, task) => sum + (task.requestedComboCount || task.combos.length), 0);
-  document.getElementById("combosTitle").textContent = `${allCombos.length} of ${requestedComboCount || allCombos.length} piece combinations`;
+  document.getElementById("combosTitle").textContent = `Наборы деталей: ${allCombos.length} из ${requestedComboCount || allCombos.length}`;
   const combos = document.getElementById("combos");
   combos.innerHTML = "";
   allCombos.forEach((combo, index) => {
@@ -2411,13 +2869,13 @@ function renderCard(card, options = {}) {
     div.className = "combo";
     const title = document.createElement("div");
     title.className = "comboTitle";
-    title.innerHTML = `<span class="diceMark">${index + 1}</span>Variant ${index + 1}`;
+    title.innerHTML = `<span class="diceMark">${index + 1}</span>Вариант ${index + 1}`;
     div.appendChild(title);
 
     const previews = document.createElement("div");
     previews.className = "comboPreviews";
     combo.pieces.forEach((id) => {
-      const piece = pieceById(id);
+      const piece = pieceById(id, cardMode);
       if (piece) previews.appendChild(createPiecePreview(piece, true));
     });
     div.appendChild(previews);
@@ -2431,17 +2889,17 @@ function renderCard(card, options = {}) {
     const div = document.createElement("div");
     div.className = "solution";
     div.setAttribute("data-task-index", String(taskIndex));
-    div.innerHTML = `<h4>Task ${taskIndex + 1} solution ${comboIndex + 1}: ${combo.pieces.join(", ")}</h4>`;
+    div.innerHTML = `<h4>${twoDimensional ? "Решение" : `Задача ${taskIndex + 1}, решение`} ${comboIndex + 1}: ${combo.pieces.join(", ")}</h4>`;
     const model = document.createElement("div");
     model.className = "solutionModel";
-    drawSolution3d(model, combo.solution);
+    drawSolutionPreview(model, combo.solution, cardMode);
     div.appendChild(model);
-    for (let z = 0; z < card.levels; z++) {
+    for (let z = 0; z < (twoDimensional ? 1 : card.levels); z++) {
       const taskWidth = task.w ?? card.w;
       const taskHeight = task.h ?? card.h;
       const layer = document.createElement("div");
       layer.className = "layer";
-      layer.innerHTML = `<h4>Layer ${z + 1}</h4>`;
+      layer.innerHTML = twoDimensional ? "<h4>Раскладка</h4>" : `<h4>Слой ${z + 1}</h4>`;
       const board = document.createElement("div");
       board.className = "board";
       board.style.gridTemplateColumns = `repeat(${taskWidth}, 28px)`;
@@ -2456,7 +2914,7 @@ function renderCard(card, options = {}) {
           if (id) {
             cell.classList.add("filled");
             cell.setAttribute("data-piece-id", id);
-            const color = pieceColor(pieceById(id));
+            const color = pieceColor(pieceById(id, cardMode));
             cell.style.backgroundColor = color;
             cell.style.color = textColorForBackground(color);
             cell.textContent = id;
@@ -2479,7 +2937,7 @@ function clearCard() {
   document.getElementById("combos").innerHTML = "";
   document.getElementById("solutions").innerHTML = "";
   document.getElementById("gameCardView").innerHTML = "";
-  document.getElementById("combosTitle").textContent = "Piece combinations";
+  document.getElementById("combosTitle").textContent = "Наборы деталей";
 }
 
 function renderManualLayerEditorFor(editorId, cellsSet, w, h) {
@@ -2500,7 +2958,7 @@ function renderManualLayerEditorFor(editorId, cellsSet, w, h) {
       cell.type = "button";
       cell.className = "manualCell";
       cell.disabled = !manualEnabled;
-      cell.setAttribute("aria-label", `Toggle cell ${x + 1},${y + 1}`);
+      cell.setAttribute("aria-label", `Переключить клетку ${x + 1},${y + 1}`);
       if (cellsSet.has(cellKey)) cell.classList.add("filled");
       cell.onclick = () => {
         if (!document.getElementById("manualMode")?.checked) return;
@@ -2553,7 +3011,7 @@ function renderPieceColorControls() {
     include.className = "pieceIncludeToggle";
     include.checked = isPieceIncluded(piece.id);
     include.setAttribute("data-piece-id", piece.id);
-    include.setAttribute("aria-label", `Include ${piece.id} in generation`);
+    include.setAttribute("aria-label", `Использовать ${piece.id} в генерации`);
     include.onchange = () => {
       setPieceIncluded(piece.id, include.checked);
       refreshPieceColorViews();
@@ -2579,7 +3037,11 @@ function renderPieceColorControls() {
 
     const preview = document.createElement("div");
     preview.className = "pieceColorPreview";
-    drawPiece3d(preview, visualCubesForPiece(piece), { compact: true, color: pieceColor(piece) });
+    if (piece.mode === MODE_2D || piece.cells) {
+      drawPiece2d(preview, piece, { compact: true, color: pieceColor(piece) });
+    } else {
+      drawPiece3d(preview, visualCubesForPiece(piece), { compact: true, color: pieceColor(piece) });
+    }
 
     header.appendChild(include);
     header.appendChild(swatch);
@@ -2603,7 +3065,7 @@ async function handleGenerateCard() {
   try {
     hideNewSessionAction();
     generateButton.disabled = true;
-    setStatus("Generating: searching for a new unique card...");
+    setStatus("Генерация: ищем новую уникальную карточку…");
     showGenerationOverlay();
     await nextFrame();
     await nextFrame();
@@ -2613,13 +3075,14 @@ async function handleGenerateCard() {
     renderCard(card);
     addGeneratedCard(card);
     incrementCardNumberInput();
-    const retryText = card.retryCount ? ` after ${card.retryCount + 1} candidate card attempts` : "";
-    const taskSummary = card.tasks ? ` Tasks: ${card.tasks.map((task, index) => `${index + 1}: ${task.target.length} cubes, ${task.combos.length}/${task.requestedComboCount} variants`).join("; ")}.` : "";
-    const printSummary = ` Print set: ${selectedPrintCardIds.length}/2 cards selected.`;
+    const retryText = card.retryCount ? ` после ${card.retryCount + 1} попыток` : "";
+    const unit = modeForCard(card) === MODE_2D ? "клеток" : "кубиков";
+    const taskSummary = card.tasks ? ` Задачи: ${card.tasks.map((task, index) => `${index + 1}: ${task.target.length} ${unit}, вариантов ${task.combos.length}/${task.requestedComboCount}`).join("; ")}.` : "";
+    const printSummary = ` Для печати выбрано: ${selectedPrintCardIds.length}/2.`;
     if (card.incomplete) {
-      setStatus(`Generated the best available card${retryText}.${taskSummary}${printSummary} At least one target has fewer than its requested variants with the current settings.`);
+      setStatus(`Создана лучшая доступная карточка${retryText}.${taskSummary}${printSummary} Для одной из задач найдено меньше вариантов, чем запрошено.`);
     } else {
-      setStatus(`Done: card generated${retryText}.${taskSummary}${printSummary}`);
+      setStatus(`Готово: карточка создана${retryText}.${taskSummary}${printSummary}`);
     }
     return card;
   } catch (error) {
@@ -2628,7 +3091,7 @@ async function handleGenerateCard() {
       showNewSessionAction();
       setStatus(SESSION_EXHAUSTED_STATUS_MESSAGE);
     } else {
-      setStatus(`Error: ${error.message}`);
+      setStatus(`Ошибка: ${localizedErrorMessage(error.message)}`);
     }
     return null;
   } finally {
@@ -2641,7 +3104,7 @@ document.getElementById("loadPieces").onclick = () => {
   try {
     loadPiecesFromText();
   } catch (error) {
-    setStatus(`Error: ${error.message}`);
+    setStatus(`Ошибка: ${localizedErrorMessage(error.message)}`);
   }
 };
 
@@ -2651,32 +3114,36 @@ document.getElementById("pieceFile").onchange = async (event) => {
   try {
     setPieces(JSON.parse(await file.text()), file.name);
   } catch (error) {
-    setStatus(`Error: ${error.message}`);
+    setStatus(`Ошибка: ${localizedErrorMessage(error.message)}`);
   }
 };
 
 document.getElementById("resetPieces").onclick = () => {
-  setPieces(structuredClone(BUILTIN_THINGIVERSE_PIECES), "thingiverse_6534722+5072592 builtin");
+  if (is2dMode()) {
+    setPieces(structuredClone(BUILTIN_2D_PIECES), "12 фигур с фотографии");
+  } else {
+    setPieces(structuredClone(BUILTIN_THINGIVERSE_PIECES), "Thingiverse 6534722 + 5072592 (встроенные)");
+  }
 };
 
 document.getElementById("presetOldThingiverse").onclick = () => {
   applyPiecePreset("thingiverse6534722");
-  setStatus(`Preset applied: Old Edition (${generationPieces().length} pieces).`);
+  setStatus(`Выбрана старая редакция: ${generationPieces().length} деталей.`);
 };
 
 document.getElementById("presetFamilyThingiverse").onclick = () => {
   applyPiecePreset("thingiverse5072592");
-  setStatus(`Preset applied: Family Edition (${generationPieces().length} pieces).`);
+  setStatus(`Выбрана семейная редакция: ${generationPieces().length} деталей.`);
 };
 
 document.getElementById("presetCustomPieces").onclick = () => {
   applyPiecePreset("custom");
-  setStatus(`Preset applied: Custom (${generationPieces().length} pieces).`);
+  setStatus(`Выбран пользовательский набор: ${generationPieces().length} деталей.`);
 };
 
 document.getElementById("presetAllPieces").onclick = () => {
   applyPiecePreset("all");
-  setStatus(`Preset applied: All pieces (${generationPieces().length} pieces).`);
+  setStatus(`Выбраны все детали: ${generationPieces().length}.`);
 };
 
 document.getElementById("resetPieceColors").onclick = () => {
@@ -2724,10 +3191,12 @@ document.getElementById("fillManualLayer").onclick = () => {
 };
 
 document.getElementById("generate").onclick = handleGenerateCard;
+document.getElementById("mode2d").onclick = () => activateMode(MODE_2D);
+document.getElementById("mode3d").onclick = () => activateMode(MODE_3D);
 document.getElementById("newSession").onclick = () => {
   resetGenerationSession();
   hideNewSessionAction();
-  setStatus("New session started. Generate a new card.");
+  setStatus("Новая сессия начата. Можно создавать карточку.");
 };
 
 document.getElementById("print").onclick = printReadyCards;
@@ -2735,6 +3204,5 @@ document.getElementById("printNow").onclick = printNow;
 document.getElementById("exportPdf").onclick = exportPdf;
 document.getElementById("exitPrintPreview").onclick = exitPrintPreview;
 
-renderManualLayerEditor();
-renderGeneratedCardList();
+activateMode(appMode, { initial: true });
 loadDefaultPieces();

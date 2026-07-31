@@ -6,7 +6,7 @@ CSS = Path("style.css").read_text(encoding="utf-8")
 
 
 def css_block(selector: str) -> str:
-    match = re.search(rf"{re.escape(selector)}\s*\{{(?P<body>.*?)\n\}}", CSS, re.S)
+    match = re.search(rf"(?m)^{re.escape(selector)}\s*\{{(?P<body>.*?)\n\}}", CSS, re.S)
     assert match, f"Missing CSS block for {selector}"
     return match.group("body")
 
@@ -89,6 +89,30 @@ def test_game_card_code_sits_in_upper_right_corner():
     assert "border:" not in code
     assert "border-radius:" not in code
     assert "box-shadow:" not in code
+
+
+def test_2d_card_restores_original_background_and_uses_six_columns():
+    card = css_block('.gameCardView[data-mode="2d"]')
+    background = css_block(".gameCardBackground")
+    slots = css_block('.gameCardView[data-mode="2d"] .gamePieceSlots')
+    preview_wrapper = css_block('.gameCardView[data-mode="2d"] .gamePiecePreview')
+    preview = css_block('.gameCardView[data-mode="2d"] .gamePiecePreview .piece2dPreview')
+    preview_cells = css_block('.gameCardView[data-mode="2d"] .gamePiecePreview .piece2dCell')
+    cells = css_block(".piece2dCell,\n.solution2dCell")
+
+    assert "background: #050505;" in card
+    assert "object-fit: cover;" in background
+    assert "transform: translate(-50%, -50%) rotate(-90deg);" in background
+    assert '.gameCardView[data-mode="2d"] .gameCardBackground' not in CSS
+    assert "grid-template-columns: repeat(6, 1fr);" in slots
+    assert "grid-template-rows: 1fr;" in slots
+    assert "flex: 0 0 30px;" in preview_wrapper
+    assert "height: 30px;" in preview_wrapper
+    assert "width: 50px;" in preview
+    assert "height: 30px;" in preview
+    assert "filter: none;" in preview
+    assert "stroke: none;" in preview_cells
+    assert "vector-effect: non-scaling-stroke;" in cells
 
 
 def test_piece_controls_are_combined_preview_cards():

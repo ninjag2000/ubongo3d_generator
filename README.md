@@ -1,91 +1,54 @@
-# Ubongo 3D Card Generator
+# Генератор заданий Ubongo 2D / 3D
 
-Local browser tool for generating Ubongo 3D-style challenge cards. Each card contains one target 3D volume and six different piece combinations that solve that same volume.
+Локальное браузерное приложение для создания карточек-головоломок:
 
-## Run
+- **2D** — один контур и шесть разных наборов из 12 плоских фигур, восстановленных по фотографии;
+- **3D** — один или два целевых объёма и шесть вариантов из деталей Thingiverse 6534722 и 5072592.
 
-Open `index.html` directly, or serve the folder locally:
+Приложение работает без сервера и внешних библиотек: генерация, поиск решений, печать и PDF выполняются в браузере.
+
+## Запуск
+
+Откройте `index.html` напрямую или запустите локальный HTTP-сервер:
 
 ```bash
 python -m http.server 8000
 ```
 
-Then open `http://localhost:8000`.
+Затем откройте `http://localhost:8000`.
 
-The app tries to load the combined real piece library from:
+## Режим 2D
 
-```text
-data/pieces_thingiverse_6534722.json
-```
+Встроенная библиотека находится в `data/pieces_2d_photo.json` и содержит 12 деталей площадью от 2 до 5 клеток, всего 48 клеток.
 
-Some browsers block `fetch()` from `file://`. If that happens, use the **Load pieces.json** button and select the generated JSON manually.
+Для карточки выбираются от 3 до 7 деталей. Генератор:
 
-## Real Piece Sources
+- строит связный непрямоугольный контур на поле 7×5;
+- ищет шесть разных наборов одинаковой площади;
+- проверяет точное заполнение без дыр и наложений;
+- разрешает повороты и зеркальное переворачивание;
+- сохраняет одно найденное решение для каждого набора.
 
-The main STL source is Thingiverse thing 6534722:
+Можно нарисовать собственный контур, отключать отдельные детали, менять цвета, фиксировать `seed`, печатать до двух карточек на листе A4 и экспортировать PDF.
 
-```text
-https://www.thingiverse.com/thing:6534722/files
-```
+## Режим 3D
 
-Search metadata identifies it as **UBONGO 3D by PegFranck**, published under Creative Commons Attribution / CC BY. The extracted files are in:
+Основная библиотека загружается из `data/pieces_thingiverse_6534722.json`. Если браузер блокирует `fetch()` для `file://`, приложение использует встроенную копию; JSON также можно выбрать вручную.
 
-```text
-source_stl/thingiverse_6534722/files/
-```
-
-The app also includes non-duplicate models from Thingiverse thing 5072592:
-
-```text
-https://www.thingiverse.com/thing:5072592/files
-```
-
-That source contains 8 STL files. Seven are rotational duplicates of existing 6534722 pieces, so only `1red.STL` is added to the active library as `P17`.
-
-## Regenerate Pieces JSON
-
-Run:
+STL-конвертер:
 
 ```bash
 python tools/stl_to_pieces_json.py source_stl/thingiverse_6534722 data/pieces_thingiverse_6534722.json
 ```
 
-The converter:
+Он читает STL, определяет шаг кубической сетки, восстанавливает целочисленные координаты и объединяет только поворотные дубликаты без зеркального отражения.
 
-- reads binary or ASCII STL files recursively;
-- infers the cube pitch from STL edge geometry;
-- voxelizes each mesh into integer cube coordinates;
-- normalizes each piece to start at `[0,0,0]`;
-- merges only rotational duplicates, not mirrored shapes;
-- writes `id`, `sourceFiles`, and `cubes` for each piece;
-- prints a quality report with file count, unique shape count, volume, dimensions, and source files.
-
-Expected current 6534722 report:
-
-```text
-Loaded STL files: 16
-Unique shapes: 16
-```
-
-For Thingiverse 5072592:
-
-```bash
-python tools/stl_to_pieces_json.py source_stl/thingiverse_5072592 data/pieces_thingiverse_5072592.json
-```
-
-Expected 5072592 report:
-
-```text
-Loaded STL files: 8
-Unique shapes: 8
-```
-
-## Tests
-
-Run:
+## Проверка
 
 ```bash
 python -m pytest -q
+node tests/test_2d_engine.js
+node tests/test_equal_layers.js
 ```
 
-The tests cover binary STL voxel conversion, nested Thingiverse-style file layouts, and rotational duplicate merging.
+Тесты проверяют геометрию 12 фигур, повороты и отражения, генерацию шести точных 2D-наборов, существующий 3D-поиск, интерфейс и печатный макет.

@@ -16,6 +16,15 @@ const inputs = {
   attempts: { value: "1200" },
   seed: { value: "12345" },
   pieces: { value: "" },
+  mode2d: makeTestElement("button"),
+  mode3d: makeTestElement("button"),
+  levelsField: makeTestElement("label"),
+  piecePresetBar: makeTestElement("div"),
+  appTitle: makeTestElement("h1"),
+  appSubtitle: makeTestElement("p"),
+  libraryHint: makeTestElement("p"),
+  pieceLibraryFormatHint: makeTestElement("p"),
+  resetPieces: makeTestElement("button"),
   status: makeTestElement("section"),
   generate: Object.assign(makeTestElement("button"), { disabled: false }),
   newSession: Object.assign(makeTestElement("button"), { className: "hidden" }),
@@ -33,6 +42,7 @@ const inputs = {
   gameCardView: makeTestElement("div"),
   printSheet: Object.assign(makeTestElement("section"), { className: "printSheet" }),
   layers: makeTestElement("div"),
+  layersTitle: makeTestElement("h3"),
   combosTitle: makeTestElement("h3"),
   combos: makeTestElement("div"),
   solutions: makeTestElement("div"),
@@ -265,7 +275,9 @@ global.requestAnimationFrame = (callback) => {
 };
 
 eval(code);
+activateMode("3d");
 pieces = JSON.parse(fs.readFileSync("data/pieces_thingiverse_6534722.json", "utf8"));
+piecesByMode["3d"] = pieces;
 inputs.pieces.value = JSON.stringify(pieces);
 
 function layerSignature(cells, z) {
@@ -447,6 +459,11 @@ assert.deepStrictEqual(backgroundForCardMode(5, 2), { key: "green", asset: "asse
 assert.deepStrictEqual(backgroundForCardMode(3, 3), { key: "green", asset: "assets/ubongo-board-green.png" });
 assert.deepStrictEqual(backgroundForCardMode(6, 2), { key: "large", asset: "assets/ubongo-board-large.png" });
 assert.deepStrictEqual(backgroundForCardMode(8, 4), { key: "large", asset: "assets/ubongo-board-large.png" });
+assert.deepStrictEqual(backgroundFor2dCard(3), { key: "cyan", asset: "assets/ubongo-board-cyan.png" });
+assert.deepStrictEqual(backgroundFor2dCard(4), { key: "pink", asset: "assets/ubongo-board-pink.png" });
+assert.deepStrictEqual(backgroundFor2dCard(5), { key: "green", asset: "assets/ubongo-board-green.png" });
+assert.deepStrictEqual(backgroundFor2dCard(6), { key: "large", asset: "assets/ubongo-board-large.png" });
+assert.deepStrictEqual(backgroundFor2dCard(7), { key: "large", asset: "assets/ubongo-board-large.png" });
 assert.deepStrictEqual(cardLayoutForBackgroundKey("cyan"), { key: "normal", width: "110mm", height: "157mm", backgroundWidth: "157mm", backgroundHeight: "110mm" });
 assert.deepStrictEqual(cardLayoutForBackgroundKey("large"), { key: "large", width: "110mm", height: "176mm", backgroundWidth: "176mm", backgroundHeight: "110mm" });
 assert.strictEqual(letterForCount(3), "C");
@@ -561,12 +578,12 @@ assert.strictEqual(gameTargetMaps.length, 2);
 assert.strictEqual(gameTargetOutlines.length, 2);
 assert.strictEqual(gameLevelBadges.length, 1);
 assert.strictEqual(gameLevelBadges[0].getAttribute("data-level-count"), String(defaultCard.levels));
-assert.strictEqual(gameLevelBadges[0].getAttribute("aria-label"), `${defaultCard.levels} levels high`);
+assert.strictEqual(gameLevelBadges[0].getAttribute("aria-label"), `Высота: ${defaultCard.levels} уровня`);
 assert.strictEqual(gameLevelIcons.length, 1);
 assert.strictEqual(gameLevelIconBlocks.length, defaultCard.levels);
 assert.strictEqual(gameCardCodes.length, 1);
 assert.strictEqual(gameCardCodes[0].textContent, "CB-01");
-assert.strictEqual(gameCardCodes[0].getAttribute("aria-label"), "Challenge CB-01");
+assert.strictEqual(gameCardCodes[0].getAttribute("aria-label"), "Задание CB-01");
 let expectedTargetCellCount = 0;
 let expectedFilledTargetCellCount = 0;
 let expectedTargetOutlineSegmentCount = 0;
@@ -695,7 +712,7 @@ assert.strictEqual(
 showGenerationOverlay();
 assert.ok(inputs.generationOverlay.classList.contains("visible"));
 assert.strictEqual(inputs.generationOverlay.getAttribute("aria-hidden"), "false");
-assert.strictEqual(inputs.generationOverlayText.textContent, "Generating a new card...");
+assert.strictEqual(inputs.generationOverlayText.textContent, "Создаём новую карточку…");
 hideGenerationOverlay();
 assert.ok(!inputs.generationOverlay.classList.contains("visible"));
 assert.strictEqual(inputs.generationOverlay.getAttribute("aria-hidden"), "true");
@@ -795,17 +812,17 @@ generatedCards.length = 0;
 selectedPrintCardIds.length = 0;
 printCallCount = 0;
 assert.strictEqual(printReadyCards(), false);
-assert.strictEqual(globalThis.lastStatusMessage, "Select at least one generated card for printing.");
+assert.strictEqual(globalThis.lastStatusMessage, "Выберите хотя бы одну созданную карточку для печати.");
 addGeneratedCard(defaultCard);
 assert.strictEqual(generatedCards.length, 1);
 assert.strictEqual(selectedPrintCardIds.length, 1);
-assert.strictEqual(inputs.printSelectionCount.textContent, "Selected for print: 1/2");
+assert.strictEqual(inputs.printSelectionCount.textContent, "Выбрано для печати: 1/2");
 assert.ok(!inputs.printSelectionPanel.classList.contains("hidden"));
 assert.strictEqual(findAllElements(inputs.generatedCardsList, (node) => (node.className || "").split(/\s+/).includes("generatedCardPreview")).length, 1);
 printReadyCards();
 assert.strictEqual(printCallCount, 0);
 assert.ok(body.classList.contains("printPreviewMode"));
-assert.strictEqual(globalThis.lastStatusMessage, "Print preview ready for 1 card. Press Print or Export PDF.");
+assert.strictEqual(globalThis.lastStatusMessage, "Предпросмотр готов: 1 карточка. Нажмите «Печать» или «Экспорт PDF».");
 assert.strictEqual(inputs.printSheet.getAttribute("data-card-count"), "1");
 assert.strictEqual(findAllElements(inputs.printSheet, (node) => (node.className || "").split(/\s+/).includes("printCardPackage")).length, 1);
 assert.strictEqual(findAllElements(inputs.printSheet, (node) => (node.className || "").split(/\s+/).includes("gameCardView")).length, 1);
@@ -816,7 +833,7 @@ blockedPopup = false;
 assert.strictEqual(printNow(), true);
 assert.strictEqual(printCallCount, 1);
 assert.strictEqual(popupOpenCount, 0);
-assert.strictEqual(globalThis.lastStatusMessage, "Print requested from the current preview. If no dialog opens in this browser, use Chrome or Ctrl+P.");
+assert.strictEqual(globalThis.lastStatusMessage, "Отправлено на печать. Если диалог не открылся, используйте Chrome или Ctrl+P.");
 popupOpenCount = 0;
 lastPopup = null;
 assert.strictEqual(openPrintPage(), true);
@@ -825,14 +842,14 @@ assert.ok(lastPopup.html.includes('<link rel="stylesheet" href="style.css?v=test
 assert.ok(lastPopup.html.includes('class="printSheet"'));
 assert.ok(lastPopup.html.includes('class="printCardPackage"'));
 assert.ok(lastPopup.html.includes('Open') === false);
-assert.ok(lastPopup.html.includes('Print'));
+assert.ok(lastPopup.html.includes('Печать'));
 assert.strictEqual(lastPopup.focused, true);
-assert.strictEqual(globalThis.lastStatusMessage, "Print page opened. Use its Print button or Ctrl+P.");
+assert.strictEqual(globalThis.lastStatusMessage, "Страница печати открыта. Используйте кнопку «Печать» или Ctrl+P.");
 popupOpenCount = 0;
 lastPopup = null;
 blockedPopup = true;
 assert.strictEqual(openPrintPage(), false);
-assert.strictEqual(globalThis.lastStatusMessage, "Popup blocked. Allow popups for this site or press Ctrl+P on the preview.");
+assert.strictEqual(globalThis.lastStatusMessage, "Всплывающее окно заблокировано. Разрешите его или нажмите Ctrl+P в предпросмотре.");
 blockedPopup = false;
 exitPrintPreview();
 assert.ok(!body.classList.contains("printPreviewMode"));
@@ -867,18 +884,18 @@ printCallCount = 0;
 printReadyCards();
 assert.strictEqual(printCallCount, 0);
 assert.ok(body.classList.contains("printPreviewMode"));
-assert.strictEqual(globalThis.lastStatusMessage, "Print preview ready for 2 cards. Press Print or Export PDF.");
+assert.strictEqual(globalThis.lastStatusMessage, "Предпросмотр готов: 2 карточки. Нажмите «Печать» или «Экспорт PDF».");
 const replacementPrintCard = { ...defaultCard, seed: defaultCard.seed + 1 };
 addGeneratedCard(replacementPrintCard);
 assert.strictEqual(generatedCards.length, 3);
 assert.deepStrictEqual(selectedPrintCards(), [singleTaskCard, replacementPrintCard]);
-assert.strictEqual(inputs.printSelectionCount.textContent, "Selected for print: 2/2");
+assert.strictEqual(inputs.printSelectionCount.textContent, "Выбрано для печати: 2/2");
 togglePrintCardSelection(defaultCard.sessionCardId);
 assert.deepStrictEqual(selectedPrintCards(), [replacementPrintCard, defaultCard]);
-assert.strictEqual(inputs.printSelectionCount.textContent, "Selected for print: 2/2");
+assert.strictEqual(inputs.printSelectionCount.textContent, "Выбрано для печати: 2/2");
 togglePrintCardSelection(defaultCard.sessionCardId);
 assert.deepStrictEqual(selectedPrintCards(), [replacementPrintCard]);
-assert.strictEqual(inputs.printSelectionCount.textContent, "Selected for print: 1/2");
+assert.strictEqual(inputs.printSelectionCount.textContent, "Выбрано для печати: 1/2");
 printReadyCards();
 assert.strictEqual(inputs.printSheet.getAttribute("data-card-count"), "1");
 assert.deepStrictEqual(
@@ -1203,7 +1220,7 @@ assert.notStrictEqual(mirroredDuplicateCombos.size, mirroredDuplicateCard.combos
     assert.strictEqual(clickedDownloadName, "ubongo3d-cards.pdf");
     assert.strictEqual(savedPdfFilename, null);
     assert.strictEqual(savedPdfImages.length, 1);
-    assert.strictEqual(globalThis.lastStatusMessage, "PDF ready. If the download did not start, save it from the opened PDF tab.");
+    assert.strictEqual(globalThis.lastStatusMessage, "PDF готов. Если загрузка не началась, сохраните файл из открытой вкладки.");
 
     generatedCards.length = 0;
     selectedPrintCardIds.length = 0;
@@ -1216,7 +1233,7 @@ assert.notStrictEqual(mirroredDuplicateCombos.size, mirroredDuplicateCard.combos
     assert.strictEqual(inputs.generate.disabled, false);
     assert.ok(!inputs.generationOverlay.classList.contains("visible"));
     assert.ok(inputs.newSession.classList.contains("hidden"));
-    assert.ok(globalThis.lastStatusMessage.startsWith("Done: card generated"));
+    assert.ok(globalThis.lastStatusMessage.startsWith("Готово: карточка создана"));
     assert.strictEqual(generatedCards.length, 1);
     assert.strictEqual(selectedPrintCardIds.length, 1);
 
@@ -1229,13 +1246,13 @@ assert.notStrictEqual(mirroredDuplicateCombos.size, mirroredDuplicateCard.combos
     assert.strictEqual(inputs.generate.disabled, false);
     assert.ok(!inputs.generationOverlay.classList.contains("visible"));
     assert.ok(!inputs.newSession.classList.contains("hidden"));
-    assert.strictEqual(globalThis.lastStatusMessage, "No new unique targets left in this session. Start a new session to generate more cards with repeats allowed across sessions.");
+    assert.strictEqual(globalThis.lastStatusMessage, "В этой сессии закончились новые уникальные контуры. Начните новую сессию, чтобы снова разрешить ранее встречавшиеся формы.");
     assert.strictEqual(generatedCards.length, 1);
 
     inputs.newSession.onclick();
     assert.deepStrictEqual(generationHistory, emptyGenerationHistory());
     assert.ok(inputs.newSession.classList.contains("hidden"));
-    assert.strictEqual(globalThis.lastStatusMessage, "New session started. Generate a new card.");
+    assert.strictEqual(globalThis.lastStatusMessage, "Новая сессия начата. Можно создавать карточку.");
     assert.strictEqual(generatedCards.length, 0);
     assert.strictEqual(selectedPrintCardIds.length, 0);
   } finally {
