@@ -36,7 +36,14 @@ header p {
   margin: 0 auto;
 }
 
-.modeSwitch {
+.headerSwitches {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.modeSwitch,
+.languageSwitch {
   display: inline-flex;
   flex: 0 0 auto;
   gap: 4px;
@@ -46,7 +53,8 @@ header p {
   border-radius: 10px;
 }
 
-.modeSwitch button {
+.modeSwitch button,
+.languageSwitch button {
   min-width: 64px;
   padding: 8px 14px;
   color: #f8fbfc;
@@ -58,7 +66,9 @@ header p {
 }
 
 .modeSwitch button.active,
-.modeSwitch button[aria-pressed="true"] {
+.modeSwitch button[aria-pressed="true"],
+.languageSwitch button.active,
+.languageSwitch button[aria-pressed="true"] {
   color: #13313f;
   background: #ffffff;
   box-shadow: 0 1px 5px rgba(0, 0, 0, .22);
@@ -1139,7 +1149,18 @@ body.printPreviewMode .printSheet[data-card-count="1"] {
     align-self: stretch;
   }
 
-  .modeSwitch button {
+  .headerSwitches {
+    align-self: stretch;
+    width: 100%;
+  }
+
+  .modeSwitch,
+  .languageSwitch {
+    flex: 1;
+  }
+
+  .modeSwitch button,
+  .languageSwitch button {
     flex: 1;
   }
 

@@ -129,4 +129,10 @@ const repeatedCard3 = generateCardWithRetries(8);
 assert.strictEqual(targetCellsSignature(repeatedCard3.target), targetCellsSignature(card3.target));
 assert.strictEqual(comboSetSignature(repeatedCard3.combos), comboSetSignature(card3.combos));
 
+inputs.targetCellSize.value = "16";
+inputs.seed.value = "424242";
+generationHistory = emptyGenerationHistory();
+const sixteenMmCard = generateCardWithRetries(8);
+assert.strictEqual(sixteenMmCard.targetCellSizeMm, 16);
+
 console.log("2D engine tests passed");

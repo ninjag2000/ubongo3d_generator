@@ -6,8 +6,291 @@ const MAX_TASKS_PER_CARD = 2;
 const COMBOS_PER_TASK = 3;
 const VARIANT_SLOTS_PER_CARD = 6;
 const APP_MODE_STORAGE_KEY = "ubongo_generator_mode_v1";
+const APP_LANGUAGE_STORAGE_KEY = "ubongo_generator_language_v1";
 const MODE_2D = "2d";
 const MODE_3D = "3d";
+const LANGUAGE_RU = "ru";
+const LANGUAGE_EN = "en";
+const TRANSLATIONS = {
+  ru: {
+    documentTitle: "Генератор заданий Ubongo 2D / 3D",
+    generatorModeLabel: "Режим генератора",
+    languageLabel: "Язык интерфейса",
+    settingsTitle: "Настройки",
+    levelsLabel: "Высота в уровнях",
+    pieceCountLabel: "Деталей в наборе",
+    cardNumberLabel: "Номер карточки",
+    targetCellSizeLabel: "Размер клетки контура",
+    variantsLabel: "Вариантов на карточке",
+    variantsHint: "В 2D: один контур и 6 разных наборов. В 3D: 6 вариантов, распределённых по одной или двум задачам.",
+    attemptsLabel: "Попыток генерации",
+    seedLabel: "Seed",
+    randomPlaceholder: "случайный",
+    generateButton: "Создать карточку",
+    pieceLibraryButton: "Библиотека деталей",
+    manualModeLabel: "нарисовать контур вручную",
+    clearButton: "Очистить",
+    fillButton: "Заполнить",
+    pieceLibraryTitle: "Библиотека деталей",
+    applyLibraryButton: "Применить библиотеку",
+    loadPiecesFile: "Загрузить pieces.json",
+    oldEditionButton: "Старая редакция",
+    familyEditionButton: "Семейная редакция",
+    customSetButton: "Мой набор",
+    allPiecesButton: "Все детали",
+    pieceColorsTitle: "Цвета деталей",
+    resetColorsButton: "Сбросить цвета",
+    newSessionButton: "Новая сессия",
+    printSelectionTitle: "Выбор для печати",
+    printButton: "Печать / PDF",
+    cardTitle: "Карточка задания",
+    combosTitle: "Наборы деталей",
+    showSolutions: "Показать решения",
+    printActionsLabel: "Действия предпросмотра печати",
+    printNowButton: "Печать",
+    exportPdfButton: "Экспорт PDF",
+    closePreviewButton: "Закрыть предпросмотр",
+    generatingOverlay: "Создаём новую карточку…",
+    loadingPieces: "Загрузка деталей…",
+    librarySets3dLabel: "Наборы библиотеки 3D",
+    appTitle2d: "Генератор заданий Ubongo 2D",
+    appTitle3d: "Генератор заданий Ubongo 3D",
+    subtitle2d: "Один контур и шесть разных наборов из 12 фигур с фотографии.",
+    subtitle3d: "Один 3D-объём и шесть вариантов из реальных деталей Thingiverse.",
+    libraryHint2d: "В режиме 2D используются 12 фигур, восстановленных по фотографии.",
+    libraryHint3d: "Сначала приложение загружает <code>data/pieces_thingiverse_6534722.json</code>. Если браузер блокирует локальную загрузку, выберите JSON вручную.",
+    formatHint2d: "Формат 2D: идентификатор, цвет и список целочисленных координат клеток. Разрешены повороты и отражения.",
+    formatHint3d: "Формат 3D: идентификатор и список целочисленных координат кубиков. Разрешены пространственные повороты.",
+    resetPieces2d: "Вернуть 12 фигур с фотографии",
+    resetPieces3d: "Вернуть встроенные детали Thingiverse",
+    layersTitle2d: "Целевой контур",
+    layersTitle3d: "Целевой объём по слоям",
+    modeReady2d: "Режим 2D готов: выберите от 3 до 7 деталей и создайте карточку.",
+    modeReady3d: "Режим 3D готов.",
+    generationSearching2d: "Генерация: ищем контур и подходящие наборы деталей…",
+    generationCandidate: "Генерация: вариант карточки {current} из {total}…",
+    sessionExhausted: "В этой сессии закончились новые уникальные контуры. Начните новую сессию, чтобы снова разрешить ранее встречавшиеся формы.",
+    piecesLoaded: "Загружено деталей: {count}. Источник: {source}.",
+    photoPiecesReady: "Готово: загружены 12 фигур 2D с фотографии.",
+    photoPiecesFallback: "Готово: используются встроенные 12 фигур 2D.",
+    thingiverseFallback: "Не удалось загрузить {url}; используются встроенные детали Thingiverse.",
+    generationOverlayPdf: "Подготовка PDF…",
+    flatPieceAria: "Плоская деталь",
+    solution2dAria: "Собранное решение 2D",
+    heightAria: "Высота: {count} уровня",
+    challengeAria: "Задание {code}",
+    cardAria: "Карточка задания",
+    selectedForPrintCount: "Выбрано для печати: {count}/2",
+    generatedMeta2d: "seed {seed} | {count} детали | поле {board}",
+    generatedMeta3d: "seed {seed} | {count} деталей × {levels} уровня | {board}",
+    selectedForPrint: "Выбрано для печати",
+    targetModeAuto: "авто",
+    targetModeManual: "ручной контур",
+    solutionsTitle: "Решения {code}",
+    printSolutionTaskLabel: "З{task}-{variant}",
+    printSolutionVariantLabel: "В{variant}",
+    choosePrintCard: "Выберите хотя бы одну созданную карточку для печати.",
+    previewReadyOne: "Предпросмотр готов: 1 карточка. Нажмите «Печать» или «Экспорт PDF».",
+    previewReadyMany: "Предпросмотр готов: {count} карточки. Нажмите «Печать» или «Экспорт PDF».",
+    sentToPrint: "Отправлено на печать. Если диалог не открылся, используйте Chrome или Ctrl+P.",
+    pdfLibrariesMissing: "Экспорт PDF недоступен: локальные библиотеки PDF не загрузились.",
+    printSheetMissing: "Экспорт PDF недоступен: не найден печатный лист.",
+    pdfReadyOpened: "PDF готов. Если загрузка не началась, сохраните файл из открытой вкладки.",
+    pdfReadyPopupBlocked: "PDF готов. Если загрузка не началась, разрешите всплывающие окна или попробуйте Chrome.",
+    pdfDownloaded: "PDF загружен.",
+    errorPrefix: "Ошибка: {message}",
+    popupBlocked: "Всплывающее окно заблокировано. Разрешите его или нажмите Ctrl+P в предпросмотре.",
+    printPageTitle: "Печатный лист Ubongo",
+    choosePrinter: "Выберите принтер в системном диалоге печати.",
+    closeButton: "Закрыть",
+    printPageOpened: "Страница печати открыта. Используйте кнопку «Печать» или Ctrl+P.",
+    volumes: "объёмы {values}",
+    area: "площадь {value}",
+    volume: "объём {value}",
+    levelsMeta: "уровней: {levels}",
+    taskOutline: "Контур задачи",
+    taskLayer: "Задача {task}, слой {layer}",
+    setsCount: "Наборы деталей: {count} из {total}",
+    variantTitle: "Вариант {variant}",
+    solution2dTitle: "Решение {variant}: {pieces}",
+    solution3dTitle: "Задача {task}, решение {variant}: {pieces}",
+    layoutTitle: "Раскладка",
+    layerTitle: "Слой {layer}",
+    toggleCellAria: "Переключить клетку {x},{y}",
+    usePieceAria: "Использовать {piece} в генерации",
+    generationUnique: "Генерация: ищем новую уникальную карточку…",
+    generationDone: "Готово: карточка создана{retry}.{tasks}{print}",
+    generationBest: "Создана лучшая доступная карточка{retry}.{tasks}{print} Для одной из задач найдено меньше вариантов, чем запрошено.",
+    retrySuffix: " после {count} попыток",
+    taskSummary: " Задачи: {summary}.",
+    taskSummaryItem: "{index}: {size} {unit}, вариантов {found}/{requested}",
+    cellsUnit: "клеток",
+    cubesUnit: "кубиков",
+    printSummary: " Для печати выбрано: {count}/2.",
+    presetOld: "Выбрана старая редакция: {count} деталей.",
+    presetFamily: "Выбрана семейная редакция: {count} деталей.",
+    presetCustom: "Выбран пользовательский набор: {count} деталей.",
+    presetAll: "Выбраны все детали: {count}.",
+    newSessionReady: "Новая сессия начата. Можно создавать карточку.",
+    enoughPiecesError: "Выберите достаточно деталей для генерации.",
+    notEnoughPiecesError: "В активной библиотеке недостаточно деталей.",
+    manualConnectedError: "Нарисованный контур должен быть связным по сторонам клеток.",
+    manualAreaError: "Площадь нарисованного контура не соответствует доступным наборам деталей.",
+    manualSolutionsError: "Для нарисованного контура не найдено шесть точных наборов деталей.",
+    rectanglesOnlyError: "Найдены только прямоугольные контуры. Увеличьте число попыток или измените seed.",
+    combinationsError: "Не удалось найти шесть разных наборов для одного контура. Увеличьте число попыток или измените seed.",
+    targetFitError: "С выбранными настройками нельзя построить подходящий контур.",
+    twoTasksError: "Не удалось разместить две совместимые 3D-задачи на карточке.",
+    libraryArrayError: "Библиотека деталей должна быть массивом.",
+    uniquePieceIdError: "У каждой детали должен быть уникальный id: {id}.",
+    missingPieceId: "без id",
+    cellsRequiredError: "Для детали {id} нужен непустой список cells.",
+    invalidCellError: "Некорректная координата клетки в детали {id}.",
+    duplicateCellsError: "В детали {id} есть повторяющиеся клетки.",
+    connectedCellsError: "Клетки детали {id} должны быть соединены сторонами.",
+    cubesRequiredError: "Для детали {id} нужен непустой список cubes.",
+    invalidCubeError: "Некорректная координата кубика в детали {id}.",
+  },
+  en: {
+    documentTitle: "Ubongo 2D / 3D Puzzle Generator",
+    generatorModeLabel: "Generator mode",
+    languageLabel: "Interface language",
+    settingsTitle: "Settings",
+    levelsLabel: "Height in layers",
+    pieceCountLabel: "Pieces per set",
+    cardNumberLabel: "Card number",
+    targetCellSizeLabel: "Target cell size",
+    variantsLabel: "Variants per card",
+    variantsHint: "2D: one outline and 6 different sets. 3D: 6 variants split across one or two tasks.",
+    attemptsLabel: "Generation attempts",
+    seedLabel: "Seed",
+    randomPlaceholder: "random",
+    generateButton: "Create card",
+    pieceLibraryButton: "Piece library",
+    manualModeLabel: "draw the outline manually",
+    clearButton: "Clear",
+    fillButton: "Fill",
+    pieceLibraryTitle: "Piece library",
+    applyLibraryButton: "Apply library",
+    loadPiecesFile: "Load pieces.json",
+    oldEditionButton: "Old edition",
+    familyEditionButton: "Family edition",
+    customSetButton: "My set",
+    allPiecesButton: "All pieces",
+    pieceColorsTitle: "Piece colors",
+    resetColorsButton: "Reset colors",
+    newSessionButton: "New session",
+    printSelectionTitle: "Print selection",
+    printButton: "Print / PDF",
+    cardTitle: "Puzzle card",
+    combosTitle: "Piece sets",
+    showSolutions: "Show solutions",
+    printActionsLabel: "Print preview actions",
+    printNowButton: "Print",
+    exportPdfButton: "Export PDF",
+    closePreviewButton: "Close preview",
+    generatingOverlay: "Creating a new card…",
+    loadingPieces: "Loading pieces…",
+    librarySets3dLabel: "3D library sets",
+    appTitle2d: "Ubongo 2D Puzzle Generator",
+    appTitle3d: "Ubongo 3D Puzzle Generator",
+    subtitle2d: "One outline and six different sets made from 12 photo-derived pieces.",
+    subtitle3d: "One 3D volume and six variants made from real Thingiverse pieces.",
+    libraryHint2d: "2D mode uses 12 pieces reconstructed from the photo.",
+    libraryHint3d: "The app first loads <code>data/pieces_thingiverse_6534722.json</code>. If the browser blocks local loading, select the JSON file manually.",
+    formatHint2d: "2D format: id, color, and a list of integer cell coordinates. Rotations and reflections are allowed.",
+    formatHint3d: "3D format: id and a list of integer cube coordinates. Spatial rotations are allowed.",
+    resetPieces2d: "Restore the 12 photo-derived pieces",
+    resetPieces3d: "Restore built-in Thingiverse pieces",
+    layersTitle2d: "Target outline",
+    layersTitle3d: "Target volume by layer",
+    modeReady2d: "2D mode ready: choose 3 to 7 pieces and create a card.",
+    modeReady3d: "3D mode ready.",
+    generationSearching2d: "Generating: searching for an outline and matching piece sets…",
+    generationCandidate: "Generating: card candidate {current} of {total}…",
+    sessionExhausted: "No new unique outlines remain in this session. Start a new session to allow previously used shapes again.",
+    piecesLoaded: "Loaded pieces: {count}. Source: {source}.",
+    photoPiecesReady: "Ready: loaded the 12 photo-derived 2D pieces.",
+    photoPiecesFallback: "Ready: using the 12 built-in 2D pieces.",
+    thingiverseFallback: "Could not load {url}; using built-in Thingiverse pieces.",
+    generationOverlayPdf: "Preparing PDF…",
+    flatPieceAria: "Flat piece",
+    solution2dAria: "Completed 2D solution",
+    heightAria: "Height: {count} layers",
+    challengeAria: "Puzzle {code}",
+    cardAria: "Puzzle card",
+    selectedForPrintCount: "Selected for print: {count}/2",
+    generatedMeta2d: "seed {seed} | {count} pieces | board {board}",
+    generatedMeta3d: "seed {seed} | {count} pieces × {levels} layers | {board}",
+    selectedForPrint: "Selected for print",
+    targetModeAuto: "auto",
+    targetModeManual: "manual outline",
+    solutionsTitle: "Solutions {code}",
+    printSolutionTaskLabel: "T{task}-{variant}",
+    printSolutionVariantLabel: "V{variant}",
+    choosePrintCard: "Select at least one generated card to print.",
+    previewReadyOne: "Preview ready: 1 card. Click “Print” or “Export PDF”.",
+    previewReadyMany: "Preview ready: {count} cards. Click “Print” or “Export PDF”.",
+    sentToPrint: "Sent to print. If the dialog did not open, use Chrome or Ctrl+P.",
+    pdfLibrariesMissing: "PDF export is unavailable: the local PDF libraries did not load.",
+    printSheetMissing: "PDF export is unavailable: the print sheet was not found.",
+    pdfReadyOpened: "PDF is ready. If the download did not start, save it from the opened tab.",
+    pdfReadyPopupBlocked: "PDF is ready. If the download did not start, allow pop-ups or try Chrome.",
+    pdfDownloaded: "PDF downloaded.",
+    errorPrefix: "Error: {message}",
+    popupBlocked: "The pop-up was blocked. Allow it or press Ctrl+P in the preview.",
+    printPageTitle: "Ubongo print sheet",
+    choosePrinter: "Choose a printer in the system print dialog.",
+    closeButton: "Close",
+    printPageOpened: "The print page is open. Use the “Print” button or Ctrl+P.",
+    volumes: "volumes {values}",
+    area: "area {value}",
+    volume: "volume {value}",
+    levelsMeta: "layers: {levels}",
+    taskOutline: "Task outline",
+    taskLayer: "Task {task}, layer {layer}",
+    setsCount: "Piece sets: {count} of {total}",
+    variantTitle: "Variant {variant}",
+    solution2dTitle: "Solution {variant}: {pieces}",
+    solution3dTitle: "Task {task}, solution {variant}: {pieces}",
+    layoutTitle: "Layout",
+    layerTitle: "Layer {layer}",
+    toggleCellAria: "Toggle cell {x},{y}",
+    usePieceAria: "Use {piece} for generation",
+    generationUnique: "Generating: searching for a new unique card…",
+    generationDone: "Done: card created{retry}.{tasks}{print}",
+    generationBest: "Created the best available card{retry}.{tasks}{print} One task has fewer variants than requested.",
+    retrySuffix: " after {count} attempts",
+    taskSummary: " Tasks: {summary}.",
+    taskSummaryItem: "{index}: {size} {unit}, variants {found}/{requested}",
+    cellsUnit: "cells",
+    cubesUnit: "cubes",
+    printSummary: " Selected for print: {count}/2.",
+    presetOld: "Old edition selected: {count} pieces.",
+    presetFamily: "Family edition selected: {count} pieces.",
+    presetCustom: "Custom set selected: {count} pieces.",
+    presetAll: "All pieces selected: {count}.",
+    newSessionReady: "New session started. You can create a card.",
+    enoughPiecesError: "Select enough pieces for generation.",
+    notEnoughPiecesError: "The active library does not contain enough pieces.",
+    manualConnectedError: "The drawn outline must be edge-connected.",
+    manualAreaError: "The drawn outline area does not match the available piece sets.",
+    manualSolutionsError: "Six exact piece sets were not found for the drawn outline.",
+    rectanglesOnlyError: "Only rectangular outlines were found. Increase the attempt count or change the seed.",
+    combinationsError: "Could not find six different sets for one outline. Increase the attempt count or change the seed.",
+    targetFitError: "A suitable outline cannot be built with the selected settings.",
+    twoTasksError: "Could not place two compatible 3D tasks on the card.",
+    libraryArrayError: "The piece library must be an array.",
+    uniquePieceIdError: "Every piece must have a unique id: {id}.",
+    missingPieceId: "missing id",
+    cellsRequiredError: "Piece {id} needs a non-empty cells list.",
+    invalidCellError: "Piece {id} contains an invalid cell coordinate.",
+    duplicateCellsError: "Piece {id} contains duplicate cells.",
+    connectedCellsError: "The cells of piece {id} must be edge-connected.",
+    cubesRequiredError: "Piece {id} needs a non-empty cubes list.",
+    invalidCubeError: "Piece {id} contains an invalid cube coordinate.",
+  },
+};
 const CARD_BACKGROUNDS = {
   cyan: "assets/ubongo-board-cyan.png",
   green: "assets/ubongo-board-green.png",
@@ -30,6 +313,7 @@ const MIRROR_EQUIVALENT_PIECES = {
   P07: "P07/P09",
   P09: "P07/P09",
 };
+var appLanguage = loadAppLanguage();
 var appMode = loadAppMode();
 var PIECE_COLORS_STORAGE_KEY = storageKeyForMode("colors", appMode);
 var PIECE_SELECTION_STORAGE_KEY = storageKeyForMode("selection", appMode);
@@ -148,6 +432,82 @@ function loadAppMode() {
     return saved === MODE_3D ? MODE_3D : MODE_2D;
   } catch {
     return MODE_2D;
+  }
+}
+
+function loadAppLanguage() {
+  try {
+    return globalThis.localStorage?.getItem(APP_LANGUAGE_STORAGE_KEY) === LANGUAGE_EN ? LANGUAGE_EN : LANGUAGE_RU;
+  } catch {
+    return LANGUAGE_RU;
+  }
+}
+
+function tr(key, params = {}) {
+  const template = TRANSLATIONS[appLanguage]?.[key] ?? TRANSLATIONS[LANGUAGE_RU]?.[key] ?? key;
+  return String(template).replace(/\{(\w+)\}/g, (_, name) => String(params[name] ?? ""));
+}
+
+function localizedLibraryName(label) {
+  if (appLanguage !== LANGUAGE_EN) return label;
+  return String(label || "")
+    .replace("12 фигур с фотографии (встроенные)", "12 photo-derived pieces (built in)")
+    .replace("12 фигур с фотографии", "12 photo-derived pieces")
+    .replace("Thingiverse 6534722 + 5072592 (встроенные)", "Thingiverse 6534722 + 5072592 (built in)")
+    .replace("Thingiverse 6534722 + 5072592 (встроенная)", "Thingiverse 6534722 + 5072592 (built in)")
+    .replace("текстовое поле", "text field");
+}
+
+function applyStaticTranslations() {
+  document.documentElement?.setAttribute?.("lang", appLanguage);
+  if ("title" in document) document.title = tr("documentTitle");
+  document.querySelectorAll?.("[data-i18n], [data-i18n-placeholder], [data-i18n-aria-label]").forEach((element) => {
+    const textKey = element.getAttribute?.("data-i18n");
+    const placeholderKey = element.getAttribute?.("data-i18n-placeholder");
+    const ariaLabelKey = element.getAttribute?.("data-i18n-aria-label");
+    if (textKey) element.textContent = tr(textKey);
+    if (placeholderKey) element.setAttribute("placeholder", tr(placeholderKey));
+    if (ariaLabelKey) element.setAttribute("aria-label", tr(ariaLabelKey));
+  });
+}
+
+function updateModeInterfaceText() {
+  const twoDimensional = is2dMode();
+  const title = document.getElementById("appTitle");
+  const subtitle = document.getElementById("appSubtitle");
+  const libraryHint = document.getElementById("libraryHint");
+  const formatHint = document.getElementById("pieceLibraryFormatHint");
+  const resetPieces = document.getElementById("resetPieces");
+  const layersTitle = document.getElementById("layersTitle");
+  if (title) title.textContent = tr(twoDimensional ? "appTitle2d" : "appTitle3d");
+  if (subtitle) subtitle.textContent = tr(twoDimensional ? "subtitle2d" : "subtitle3d");
+  if (libraryHint) libraryHint.innerHTML = tr(twoDimensional ? "libraryHint2d" : "libraryHint3d");
+  if (formatHint) formatHint.textContent = tr(twoDimensional ? "formatHint2d" : "formatHint3d");
+  if (resetPieces) resetPieces.textContent = tr(twoDimensional ? "resetPieces2d" : "resetPieces3d");
+  if (layersTitle) layersTitle.textContent = tr(twoDimensional ? "layersTitle2d" : "layersTitle3d");
+}
+
+function activateLanguage(nextLanguage, options = {}) {
+  appLanguage = nextLanguage === LANGUAGE_EN ? LANGUAGE_EN : LANGUAGE_RU;
+  try {
+    globalThis.localStorage?.setItem(APP_LANGUAGE_STORAGE_KEY, appLanguage);
+  } catch {
+    // The language still changes if persistent storage is unavailable.
+  }
+  const english = appLanguage === LANGUAGE_EN;
+  document.getElementById("languageRu")?.setAttribute?.("aria-pressed", String(!english));
+  document.getElementById("languageEn")?.setAttribute?.("aria-pressed", String(english));
+  document.getElementById("languageRu")?.classList?.toggle("active", !english);
+  document.getElementById("languageEn")?.classList?.toggle("active", english);
+  applyStaticTranslations();
+  updateModeInterfaceText();
+  if (!options.initial) {
+    renderManualLayerEditor();
+    renderPieceColorControls();
+    renderGeneratedCardList();
+    if (lastCard) renderCard(lastCard, { skipHistory: true });
+    if (document.body?.classList?.contains?.("printPreviewMode")) renderPrintSheet(selectedPrintCards());
+    setStatus(tr(is2dMode() ? "modeReady2d" : "modeReady3d"));
   }
 }
 
@@ -374,24 +734,7 @@ function activateMode(nextMode, options = {}) {
   document.getElementById("mode3d")?.classList?.toggle("active", !twoDimensional);
   if (document.body?.setAttribute) document.body.setAttribute("data-mode", appMode);
 
-  const title = document.getElementById("appTitle");
-  const subtitle = document.getElementById("appSubtitle");
-  const libraryHint = document.getElementById("libraryHint");
-  const formatHint = document.getElementById("pieceLibraryFormatHint");
-  const resetPieces = document.getElementById("resetPieces");
-  const layersTitle = document.getElementById("layersTitle");
-  if (title) title.textContent = `Генератор заданий Ubongo ${twoDimensional ? "2D" : "3D"}`;
-  if (subtitle) subtitle.textContent = twoDimensional
-    ? "Один контур и шесть разных наборов из 12 фигур с фотографии."
-    : "Один 3D-объём и шесть вариантов из реальных деталей Thingiverse.";
-  if (libraryHint) libraryHint.innerHTML = twoDimensional
-    ? "В режиме 2D используются 12 фигур, восстановленных по фотографии."
-    : "Сначала приложение загружает <code>data/pieces_thingiverse_6534722.json</code>. Если браузер блокирует локальную загрузку, выберите JSON вручную.";
-  if (formatHint) formatHint.textContent = twoDimensional
-    ? "Формат 2D: идентификатор, цвет и список целочисленных координат клеток. Разрешены повороты и отражения."
-    : "Формат 3D: идентификатор и список целочисленных координат кубиков. Разрешены пространственные повороты.";
-  if (resetPieces) resetPieces.textContent = twoDimensional ? "Вернуть 12 фигур с фотографии" : "Вернуть встроенные детали Thingiverse";
-  if (layersTitle) layersTitle.textContent = twoDimensional ? "Целевой контур" : "Целевой объём по слоям";
+  updateModeInterfaceText();
 
   const editor = document.getElementById("pieces");
   if (editor) editor.value = serializePieceLibraryForEditor();
@@ -401,7 +744,7 @@ function activateMode(nextMode, options = {}) {
   const restoredCard = lastCard;
   clearCard();
   if (restoredCard) renderCard(restoredCard, { skipHistory: true });
-  setStatus(twoDimensional ? "Режим 2D готов: выберите от 3 до 7 деталей и создайте карточку." : "Режим 3D готов.");
+  setStatus(tr(twoDimensional ? "modeReady2d" : "modeReady3d"));
 }
 
 function canonicalPiecesForCard(card) {
@@ -511,9 +854,9 @@ function incompleteGenerationFailureMessage() {
 
 function generationProgressMessage() {
   if (!currentGenerationAttempt || !currentGenerationAttemptBudget) {
-    return "Генерация: ищем контур и подходящие наборы деталей…";
+    return tr("generationSearching2d");
   }
-  return `Генерация: вариант карточки ${currentGenerationAttempt} из ${currentGenerationAttemptBudget}…`;
+  return tr("generationCandidate", { current: currentGenerationAttempt, total: currentGenerationAttemptBudget });
 }
 
 function autoTargetSearchLimit(targetCount, attempts) {
@@ -824,7 +1167,7 @@ function nextCardNumberValue(value) {
 
 function selectedTargetCellSize() {
   const value = Number(document.getElementById("targetCellSize")?.value);
-  return value === 13 ? 13 : 14.5;
+  return [13, 14.5, 16].includes(value) ? value : 14.5;
 }
 
 function modeForCard(card) {
@@ -911,7 +1254,9 @@ function twoTaskTargetsFitOnCard(tasksOrTargets) {
 
 const TWO_TASK_TARGET_COLLISION_MESSAGE = "Two task targets collide: left target must be at most 3 columns wide, right target must be at most 4 columns wide, mirrored/equivalent contours cannot repeat, and 4-cell rows cannot be on the same or adjacent rows.";
 const INCOMPLETE_GENERATION_FAILURE_MESSAGE = "Could not find a full variant set within the current Generation attempts budget. Try Generate card again, increase attempts, or broaden the active piece set.";
-const SESSION_EXHAUSTED_STATUS_MESSAGE = "В этой сессии закончились новые уникальные контуры. Начните новую сессию, чтобы снова разрешить ранее встречавшиеся формы.";
+function sessionExhaustedStatusMessage() {
+  return tr("sessionExhausted");
+}
 var currentGenerationAttempt = null;
 var currentGenerationAttemptBudget = null;
 
@@ -1414,22 +1759,22 @@ function pieceById(id, mode = appMode) {
 }
 
 function validatePieces(parsed, mode = appMode) {
-  if (!Array.isArray(parsed)) throw new Error("Библиотека деталей должна быть массивом.");
+  if (!Array.isArray(parsed)) throw new Error(tr("libraryArrayError"));
   const ids = new Set();
   const validated = parsed.map((piece) => {
-    if (!piece?.id || ids.has(piece.id)) throw new Error(`У каждой детали должен быть уникальный id: ${piece?.id || "без id"}.`);
+    if (!piece?.id || ids.has(piece.id)) throw new Error(tr("uniquePieceIdError", { id: piece?.id || tr("missingPieceId") }));
     ids.add(piece.id);
     if (is2dMode(mode)) {
-      if (!Array.isArray(piece.cells) || piece.cells.length === 0) throw new Error(`Для детали ${piece.id} нужен непустой список cells.`);
+      if (!Array.isArray(piece.cells) || piece.cells.length === 0) throw new Error(tr("cellsRequiredError", { id: piece.id }));
       for (const cell of piece.cells) {
         if (!Array.isArray(cell) || cell.length !== 2 || cell.some((value) => !Number.isInteger(value))) {
-          throw new Error(`Некорректная координата клетки в детали ${piece.id}.`);
+          throw new Error(tr("invalidCellError", { id: piece.id }));
         }
       }
       const cubes = norm(piece.cells.map(([x, y]) => [x, y, 0]));
-      if (new Set(cubes.map(key)).size !== cubes.length) throw new Error(`В детали ${piece.id} есть повторяющиеся клетки.`);
+      if (new Set(cubes.map(key)).size !== cubes.length) throw new Error(tr("duplicateCellsError", { id: piece.id }));
       const cells = cubes.map(([x, y]) => [x, y]);
-      if (!connected2d(cells)) throw new Error(`Клетки детали ${piece.id} должны быть соединены сторонами.`);
+      if (!connected2d(cells)) throw new Error(tr("connectedCellsError", { id: piece.id }));
       return {
         id: String(piece.id),
         mode: MODE_2D,
@@ -1438,10 +1783,10 @@ function validatePieces(parsed, mode = appMode) {
         cubes,
       };
     }
-    if (!Array.isArray(piece.cubes) || piece.cubes.length === 0) throw new Error(`Для детали ${piece.id} нужен непустой список cubes.`);
+    if (!Array.isArray(piece.cubes) || piece.cubes.length === 0) throw new Error(tr("cubesRequiredError", { id: piece.id }));
     for (const cube of piece.cubes) {
       if (!Array.isArray(cube) || cube.length !== 3 || cube.some((value) => !Number.isInteger(value))) {
-        throw new Error(`Некорректная координата кубика в детали ${piece.id}.`);
+        throw new Error(tr("invalidCubeError", { id: piece.id }));
       }
     }
     return piece;
@@ -1459,7 +1804,7 @@ function setPieces(nextPieces, sourceLabel, mode = appMode, options = {}) {
   const editor = document.getElementById("pieces");
   if (editor) editor.value = serializePieceLibraryForEditor(pieces, mode);
   renderPieceColorControls();
-  if (!options.silent) setStatus(`Загружено деталей: ${pieces.length}. Источник: ${sourceLabel}.`);
+  if (!options.silent) setStatus(tr("piecesLoaded", { count: pieces.length, source: localizedLibraryName(sourceLabel) }));
   return validated;
 }
 
@@ -1479,16 +1824,14 @@ async function loadDefaultPieces() {
     setPieces(await response.json(), "Thingiverse 6534722 + 5072592", MODE_3D, { silent: appMode !== MODE_3D });
   } catch (error) {
     setPieces(structuredClone(BUILTIN_THINGIVERSE_PIECES), "Thingiverse 6534722 + 5072592 (встроенные)", MODE_3D, { silent: true });
-    if (appMode === MODE_3D) setStatus(`Не удалось загрузить ${DATA_URL}; используются встроенные детали Thingiverse.`);
+    if (appMode === MODE_3D) setStatus(tr("thingiverseFallback", { url: DATA_URL }));
   }
   if (appMode === MODE_2D) {
     pieces = piecesByMode[MODE_2D];
     activeLibrary = activeLibrariesByMode[MODE_2D];
     document.getElementById("pieces").value = serializePieceLibraryForEditor();
     renderPieceColorControls();
-    setStatus(twoDimensionalLoaded
-      ? "Готово: загружены 12 фигур 2D с фотографии."
-      : "Готово: используются встроенные 12 фигур 2D.");
+    setStatus(tr(twoDimensionalLoaded ? "photoPiecesReady" : "photoPiecesFallback"));
   }
 }
 
@@ -1791,16 +2134,16 @@ function setStatus(message) {
 
 function localizedErrorMessage(message) {
   const source = String(message || "");
-  if (/Select at least .* pieces/.test(source)) return "Выберите достаточно деталей для генерации.";
-  if (/Not enough pieces/.test(source)) return "В активной библиотеке недостаточно деталей.";
-  if (/Manual layer .*cells must be connected/.test(source)) return "Нарисованный контур должен быть связным по сторонам клеток.";
-  if (/Manual layer volume|cannot be built/.test(source)) return "Площадь нарисованного контура не соответствует доступным наборам деталей.";
-  if (/No exact solution for the drawn/.test(source)) return "Для нарисованного контура не найдено шесть точных наборов деталей.";
-  if (/Only plain rectangular targets/.test(source)) return "Найдены только прямоугольные контуры. Увеличьте число попыток или измените seed.";
-  if (/Could not find enough combinations|Could not find a full/.test(source)) return "Не удалось найти шесть разных наборов для одного контура. Увеличьте число попыток или измените seed.";
-  if (/No new unique targets left/.test(source)) return SESSION_EXHAUSTED_STATUS_MESSAGE;
-  if (/No normal-sized target|No target that fits/.test(source)) return "С выбранными настройками нельзя построить подходящий контур.";
-  if (/Could not find compatible two-task targets|Two task targets collide/.test(source)) return "Не удалось разместить две совместимые 3D-задачи на карточке.";
+  if (/Select at least .* pieces/.test(source)) return tr("enoughPiecesError");
+  if (/Not enough pieces/.test(source)) return tr("notEnoughPiecesError");
+  if (/Manual layer .*cells must be connected/.test(source)) return tr("manualConnectedError");
+  if (/Manual layer volume|cannot be built/.test(source)) return tr("manualAreaError");
+  if (/No exact solution for the drawn/.test(source)) return tr("manualSolutionsError");
+  if (/Only plain rectangular targets/.test(source)) return tr("rectanglesOnlyError");
+  if (/Could not find enough combinations|Could not find a full/.test(source)) return tr("combinationsError");
+  if (/No new unique targets left/.test(source)) return sessionExhaustedStatusMessage();
+  if (/No normal-sized target|No target that fits/.test(source)) return tr("targetFitError");
+  if (/Could not find compatible two-task targets|Two task targets collide/.test(source)) return tr("twoTasksError");
   return source;
 }
 
@@ -1812,7 +2155,7 @@ function hideNewSessionAction() {
   document.getElementById("newSession")?.classList.add("hidden");
 }
 
-function showGenerationOverlay(message = "Создаём новую карточку…") {
+function showGenerationOverlay(message = tr("generatingOverlay")) {
   const overlay = document.getElementById("generationOverlay");
   const text = document.getElementById("generationOverlayText");
   if (text) text.textContent = message;
@@ -2099,7 +2442,7 @@ function drawPiece2d(container, pieceOrCells, options = {}) {
   svg.setAttribute("data-columns", String(columns));
   svg.setAttribute("data-rows", String(rows));
   svg.setAttribute("role", "img");
-  svg.setAttribute("aria-label", "Плоская деталь");
+  svg.setAttribute("aria-label", tr("flatPieceAria"));
   for (const [x, y] of cells) {
     const rect = document.createElementNS(xmlns, "rect");
     rect.setAttribute("class", "piece2dCell");
@@ -2135,7 +2478,7 @@ function drawSolution2d(container, solution, options = {}) {
   svg.setAttribute("height", String(height));
   svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
   svg.setAttribute("role", "img");
-  svg.setAttribute("aria-label", "Собранное решение 2D");
+  svg.setAttribute("aria-label", tr("solution2dAria"));
   for (const cell of placedCells) {
     const rect = document.createElementNS(xmlns, "rect");
     rect.setAttribute("class", "solution2dCell");
@@ -2347,7 +2690,7 @@ function createGameLevelBadge(levels) {
   const badge = document.createElement("div");
   badge.className = "gameLevelBadge";
   badge.setAttribute("data-level-count", String(levelCount));
-  badge.setAttribute("aria-label", `Высота: ${levelCount} уровня`);
+  badge.setAttribute("aria-label", tr("heightAria", { count: levelCount }));
 
   const xmlns = "http://www.w3.org/2000/svg";
   const svg = document.createElementNS(xmlns, "svg");
@@ -2378,7 +2721,7 @@ function createGameCardCode(card) {
   const badge = document.createElement("div");
   badge.className = "gameCardCode";
   badge.textContent = code;
-  badge.setAttribute("aria-label", `Задание ${code}`);
+  badge.setAttribute("aria-label", tr("challengeAria", { code }));
   return badge;
 }
 
@@ -2406,7 +2749,8 @@ function populateGameCardView(view, card) {
   view.appendChild(createGameCardCode(card));
 
   const tasks = card.tasks || [{ target: card.target, combos: card.combos }];
-  const targetCellSize = twoDimensional ? 13 : Number(card.targetCellSizeMm) === 13 ? 13 : 14.5;
+  const requestedTargetCellSize = Number(card.targetCellSizeMm);
+  const targetCellSize = [13, 14.5, 16].includes(requestedTargetCellSize) ? requestedTargetCellSize : (twoDimensional ? 13 : 14.5);
   tasks.forEach((task, taskIndex) => {
     view.appendChild(createGameTargetMap(task.target, taskIndex, tasks.length, targetCellSize));
   });
@@ -2477,7 +2821,7 @@ function populateGameCardView(view, card) {
 function createGameCardView(card) {
   const view = document.createElement("div");
   view.className = "gameCardView";
-  view.setAttribute("aria-label", "Карточка задания");
+  view.setAttribute("aria-label", tr("cardAria"));
   populateGameCardView(view, card);
   return view;
 }
@@ -2504,7 +2848,7 @@ function selectedPrintCards() {
 
 function updatePrintSelectionCount() {
   const count = document.getElementById("printSelectionCount");
-  if (count) count.textContent = `Выбрано для печати: ${selectedPrintCardIds.length}/2`;
+  if (count) count.textContent = tr("selectedForPrintCount", { count: selectedPrintCardIds.length });
 }
 
 function renderGeneratedCardList() {
@@ -2543,12 +2887,12 @@ function renderGeneratedCardList() {
     const meta = document.createElement("div");
     meta.className = "generatedCardMeta";
     meta.textContent = modeForCard(card) === MODE_2D
-      ? `seed ${card.seed} | ${cardPieceCount} детали | поле ${boardLabelForCard(card)}`
-      : `seed ${card.seed} | ${cardPieceCount} деталей × ${card.levels} уровня | ${boardLabelForCard(card)}`;
+      ? tr("generatedMeta2d", { seed: card.seed, count: cardPieceCount, board: boardLabelForCard(card) })
+      : tr("generatedMeta3d", { seed: card.seed, count: cardPieceCount, levels: card.levels, board: boardLabelForCard(card) });
 
     const tag = document.createElement("div");
     tag.className = "generatedCardTag";
-    tag.textContent = selected ? "Выбрано для печати" : "";
+    tag.textContent = selected ? tr("selectedForPrint") : "";
 
     info.appendChild(code);
     info.appendChild(meta);
@@ -2594,8 +2938,8 @@ function cardTasks(card) {
 }
 
 function localizedTargetMode(mode) {
-  if (mode === "auto") return "авто";
-  if (mode === "equal-layer") return "ручной контур";
+  if (mode === "auto") return tr("targetModeAuto");
+  if (mode === "equal-layer") return tr("targetModeManual");
   return mode;
 }
 
@@ -2606,7 +2950,7 @@ function createPrintSolutionBlock(card) {
   block.setAttribute("data-challenge-code", code);
 
   const title = document.createElement("h3");
-  title.textContent = `Решения ${code}`;
+  title.textContent = tr("solutionsTitle", { code });
   block.appendChild(title);
 
   const grid = document.createElement("div");
@@ -2620,7 +2964,9 @@ function createPrintSolutionBlock(card) {
 
     const label = document.createElement("span");
     label.className = "printSolutionLabel";
-    label.textContent = cardTasks(card).length > 1 ? `З${taskIndex + 1}-${comboIndex + 1}` : `В${comboIndex + 1}`;
+    label.textContent = cardTasks(card).length > 1
+      ? tr("printSolutionTaskLabel", { task: taskIndex + 1, variant: comboIndex + 1 })
+      : tr("printSolutionVariantLabel", { variant: comboIndex + 1 });
     item.appendChild(label);
 
     const model = document.createElement("div");
@@ -2660,14 +3006,14 @@ function renderPrintSheet(cards = selectedPrintCards()) {
 function printReadyCards() {
   const cards = selectedPrintCards();
   if (cards.length < 1) {
-    setStatus("Выберите хотя бы одну созданную карточку для печати.");
+    setStatus(tr("choosePrintCard"));
     document.getElementById("status")?.scrollIntoView?.({ block: "center", behavior: "smooth" });
     return false;
   }
   renderPrintSheet(cards);
   const cardCount = cards.length;
   document.body.classList.add("printPreviewMode");
-  setStatus(`Предпросмотр готов: ${cardCount} ${cardCount === 1 ? "карточка" : "карточки"}. Нажмите «Печать» или «Экспорт PDF».`);
+  setStatus(tr(cardCount === 1 ? "previewReadyOne" : "previewReadyMany", { count: cardCount }));
   document.getElementById("printSheet")?.scrollIntoView?.({ block: "start", behavior: "smooth" });
   void document.getElementById("printSheet")?.offsetHeight;
   return true;
@@ -2676,33 +3022,33 @@ function printReadyCards() {
 function printNow() {
   const sheet = document.getElementById("printSheet");
   if (!sheet || !sheet.children.length) {
-    setStatus("Выберите хотя бы одну созданную карточку для печати.");
+    setStatus(tr("choosePrintCard"));
     return false;
   }
   window.print();
-  setStatus("Отправлено на печать. Если диалог не открылся, используйте Chrome или Ctrl+P.");
+  setStatus(tr("sentToPrint"));
   return true;
 }
 
 async function downloadPrintSheetPdf(cards = selectedPrintCards()) {
   const printableCards = cards.slice(0, 2);
   if (!printableCards.length) {
-    setStatus("Выберите хотя бы одну созданную карточку для печати.");
+    setStatus(tr("choosePrintCard"));
     return false;
   }
   if (typeof html2canvas !== "function" || !globalThis.jspdf?.jsPDF) {
-    setStatus("Экспорт PDF недоступен: локальные библиотеки PDF не загрузились.");
+    setStatus(tr("pdfLibrariesMissing"));
     return false;
   }
 
   renderPrintSheet(cards);
   const sheet = document.getElementById("printSheet");
   if (!sheet) {
-    setStatus("Экспорт PDF недоступен: не найден печатный лист.");
+    setStatus(tr("printSheetMissing"));
     return false;
   }
 
-  showGenerationOverlay("Подготовка PDF…");
+  showGenerationOverlay(tr("generationOverlayPdf"));
   try {
     await nextFrame();
     await nextFrame();
@@ -2737,17 +3083,15 @@ async function downloadPrintSheetPdf(cards = selectedPrintCards()) {
       downloadLink.remove();
       const popup = window.open(pdfUrl, "_blank");
       setTimeout(() => globalThis.URL.revokeObjectURL(pdfUrl), 60_000);
-      setStatus(popup
-        ? "PDF готов. Если загрузка не началась, сохраните файл из открытой вкладки."
-        : "PDF готов. Если загрузка не началась, разрешите всплывающие окна или попробуйте Chrome.");
+      setStatus(tr(popup ? "pdfReadyOpened" : "pdfReadyPopupBlocked"));
     } else {
       const pdfFilename = printableCards.every((card) => modeForCard(card) === MODE_2D) ? "ubongo2d-cards.pdf" : "ubongo3d-cards.pdf";
       pdf.save(pdfFilename);
-      setStatus("PDF загружен.");
+      setStatus(tr("pdfDownloaded"));
     }
     return true;
   } catch (error) {
-    setStatus(`Ошибка: ${localizedErrorMessage(error.message)}`);
+    setStatus(tr("errorPrefix", { message: localizedErrorMessage(error.message) }));
     return false;
   } finally {
     hideGenerationOverlay();
@@ -2761,20 +3105,20 @@ async function exportPdf() {
 function openPrintPage(mode = "print") {
   const sheet = document.getElementById("printSheet");
   if (!sheet || !sheet.children.length) {
-    setStatus("Выберите хотя бы одну созданную карточку для печати.");
+    setStatus(tr("choosePrintCard"));
     return false;
   }
   const popup = window.open("", "_blank");
   if (!popup) {
-    setStatus("Всплывающее окно заблокировано. Разрешите его или нажмите Ctrl+P в предпросмотре.");
+    setStatus(tr("popupBlocked"));
     return false;
   }
   const stylesheetHref = document.querySelector('link[rel="stylesheet"]')?.getAttribute("href") || "style.css";
-  const title = "Печатный лист Ubongo";
-  const primaryAction = "Печать";
-  const helperText = "Выберите принтер в системном диалоге печати.";
+  const title = tr("printPageTitle");
+  const primaryAction = tr("printNowButton");
+  const helperText = tr("choosePrinter");
   const html = `<!doctype html>
-<html lang="ru">
+<html lang="${appLanguage}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -2802,7 +3146,7 @@ function openPrintPage(mode = "print") {
 <body class="printPreviewMode">
   <div class="standalonePrintToolbar">
     <button type="button" onclick="window.print()">${primaryAction}</button>
-    <button type="button" onclick="window.close()">Закрыть</button>
+    <button type="button" onclick="window.close()">${tr("closeButton")}</button>
     <span class="standalonePrintHint">${helperText}</span>
   </div>
   ${sheet.outerHTML}
@@ -2812,7 +3156,7 @@ function openPrintPage(mode = "print") {
   popup.document.write(html);
   popup.document.close();
   popup.focus?.();
-  setStatus("Страница печати открыта. Используйте кнопку «Печать» или Ctrl+P.");
+  setStatus(tr("printPageOpened"));
   return true;
 }
 
@@ -2836,10 +3180,13 @@ function renderCard(card, options = {}) {
   const modeText = [...new Set(tasks.map((task) => task.targetMode).filter(Boolean))].length
     ? ` | ${[...new Set(tasks.map((task) => localizedTargetMode(task.targetMode)).filter(Boolean))].join("+")}`
     : "";
-  const volumeText = tasks.length > 1 ? `объёмы ${tasks.map((task) => task.target.length).join("+")}` : `${twoDimensional ? "площадь" : "объём"} ${card.target.length}`;
+  const volumeText = tasks.length > 1
+    ? tr("volumes", { values: tasks.map((task) => task.target.length).join("+") })
+    : tr(twoDimensional ? "area" : "volume", { value: card.target.length });
+  const libraryText = localizedLibraryName(card.activeLibrary);
   document.getElementById("meta").textContent = twoDimensional
-    ? `seed ${card.seed} | поле ${boardLabelForCard(card)} | ${volumeText}${modeText} | ${card.activeLibrary}`
-    : `seed ${card.seed} | ${boardLabelForCard(card)} | уровней: ${card.levels} | ${volumeText}${modeText} | ${card.activeLibrary}`;
+    ? `seed ${card.seed} | ${appLanguage === LANGUAGE_EN ? "board" : "поле"} ${boardLabelForCard(card)} | ${volumeText}${modeText} | ${libraryText}`
+    : `seed ${card.seed} | ${boardLabelForCard(card)} | ${tr("levelsMeta", { levels: card.levels })} | ${volumeText}${modeText} | ${libraryText}`;
   renderGameCardView(card);
 
   const layers = document.getElementById("layers");
@@ -2851,9 +3198,9 @@ function renderCard(card, options = {}) {
       const wrap = document.createElement("div");
       wrap.className = "layer";
       wrap.setAttribute("data-task-index", String(taskIndex));
-      wrap.innerHTML = twoDimensional
-        ? "<h4>Контур задачи</h4>"
-        : `<h4>Задача ${taskIndex + 1}, слой ${z + 1}</h4>`;
+      wrap.innerHTML = `<h4>${twoDimensional
+        ? tr("taskOutline")
+        : tr("taskLayer", { task: taskIndex + 1, layer: z + 1 })}</h4>`;
       drawBoard(wrap, task.target, taskWidth, taskHeight, z);
       layers.appendChild(wrap);
     }
@@ -2861,7 +3208,7 @@ function renderCard(card, options = {}) {
 
   const allCombos = tasks.flatMap((task) => task.combos);
   const requestedComboCount = tasks.reduce((sum, task) => sum + (task.requestedComboCount || task.combos.length), 0);
-  document.getElementById("combosTitle").textContent = `Наборы деталей: ${allCombos.length} из ${requestedComboCount || allCombos.length}`;
+  document.getElementById("combosTitle").textContent = tr("setsCount", { count: allCombos.length, total: requestedComboCount || allCombos.length });
   const combos = document.getElementById("combos");
   combos.innerHTML = "";
   allCombos.forEach((combo, index) => {
@@ -2869,7 +3216,7 @@ function renderCard(card, options = {}) {
     div.className = "combo";
     const title = document.createElement("div");
     title.className = "comboTitle";
-    title.innerHTML = `<span class="diceMark">${index + 1}</span>Вариант ${index + 1}`;
+    title.innerHTML = `<span class="diceMark">${index + 1}</span>${tr("variantTitle", { variant: index + 1 })}`;
     div.appendChild(title);
 
     const previews = document.createElement("div");
@@ -2889,7 +3236,11 @@ function renderCard(card, options = {}) {
     const div = document.createElement("div");
     div.className = "solution";
     div.setAttribute("data-task-index", String(taskIndex));
-    div.innerHTML = `<h4>${twoDimensional ? "Решение" : `Задача ${taskIndex + 1}, решение`} ${comboIndex + 1}: ${combo.pieces.join(", ")}</h4>`;
+    div.innerHTML = `<h4>${tr(twoDimensional ? "solution2dTitle" : "solution3dTitle", {
+      task: taskIndex + 1,
+      variant: comboIndex + 1,
+      pieces: combo.pieces.join(", "),
+    })}</h4>`;
     const model = document.createElement("div");
     model.className = "solutionModel";
     drawSolutionPreview(model, combo.solution, cardMode);
@@ -2899,7 +3250,7 @@ function renderCard(card, options = {}) {
       const taskHeight = task.h ?? card.h;
       const layer = document.createElement("div");
       layer.className = "layer";
-      layer.innerHTML = twoDimensional ? "<h4>Раскладка</h4>" : `<h4>Слой ${z + 1}</h4>`;
+      layer.innerHTML = `<h4>${twoDimensional ? tr("layoutTitle") : tr("layerTitle", { layer: z + 1 })}</h4>`;
       const board = document.createElement("div");
       board.className = "board";
       board.style.gridTemplateColumns = `repeat(${taskWidth}, 28px)`;
@@ -2937,7 +3288,7 @@ function clearCard() {
   document.getElementById("combos").innerHTML = "";
   document.getElementById("solutions").innerHTML = "";
   document.getElementById("gameCardView").innerHTML = "";
-  document.getElementById("combosTitle").textContent = "Наборы деталей";
+  document.getElementById("combosTitle").textContent = tr("combosTitle");
 }
 
 function renderManualLayerEditorFor(editorId, cellsSet, w, h) {
@@ -2958,7 +3309,7 @@ function renderManualLayerEditorFor(editorId, cellsSet, w, h) {
       cell.type = "button";
       cell.className = "manualCell";
       cell.disabled = !manualEnabled;
-      cell.setAttribute("aria-label", `Переключить клетку ${x + 1},${y + 1}`);
+      cell.setAttribute("aria-label", tr("toggleCellAria", { x: x + 1, y: y + 1 }));
       if (cellsSet.has(cellKey)) cell.classList.add("filled");
       cell.onclick = () => {
         if (!document.getElementById("manualMode")?.checked) return;
@@ -3011,7 +3362,7 @@ function renderPieceColorControls() {
     include.className = "pieceIncludeToggle";
     include.checked = isPieceIncluded(piece.id);
     include.setAttribute("data-piece-id", piece.id);
-    include.setAttribute("aria-label", `Использовать ${piece.id} в генерации`);
+    include.setAttribute("aria-label", tr("usePieceAria", { piece: piece.id }));
     include.onchange = () => {
       setPieceIncluded(piece.id, include.checked);
       refreshPieceColorViews();
@@ -3065,7 +3416,7 @@ async function handleGenerateCard() {
   try {
     hideNewSessionAction();
     generateButton.disabled = true;
-    setStatus("Генерация: ищем новую уникальную карточку…");
+    setStatus(tr("generationUnique"));
     showGenerationOverlay();
     await nextFrame();
     await nextFrame();
@@ -3075,23 +3426,31 @@ async function handleGenerateCard() {
     renderCard(card);
     addGeneratedCard(card);
     incrementCardNumberInput();
-    const retryText = card.retryCount ? ` после ${card.retryCount + 1} попыток` : "";
-    const unit = modeForCard(card) === MODE_2D ? "клеток" : "кубиков";
-    const taskSummary = card.tasks ? ` Задачи: ${card.tasks.map((task, index) => `${index + 1}: ${task.target.length} ${unit}, вариантов ${task.combos.length}/${task.requestedComboCount}`).join("; ")}.` : "";
-    const printSummary = ` Для печати выбрано: ${selectedPrintCardIds.length}/2.`;
+    const retryText = card.retryCount ? tr("retrySuffix", { count: card.retryCount + 1 }) : "";
+    const unit = tr(modeForCard(card) === MODE_2D ? "cellsUnit" : "cubesUnit");
+    const taskSummary = card.tasks ? tr("taskSummary", {
+      summary: card.tasks.map((task, index) => tr("taskSummaryItem", {
+        index: index + 1,
+        size: task.target.length,
+        unit,
+        found: task.combos.length,
+        requested: task.requestedComboCount,
+      })).join("; "),
+    }) : "";
+    const printSummary = tr("printSummary", { count: selectedPrintCardIds.length });
     if (card.incomplete) {
-      setStatus(`Создана лучшая доступная карточка${retryText}.${taskSummary}${printSummary} Для одной из задач найдено меньше вариантов, чем запрошено.`);
+      setStatus(tr("generationBest", { retry: retryText, tasks: taskSummary, print: printSummary }));
     } else {
-      setStatus(`Готово: карточка создана${retryText}.${taskSummary}${printSummary}`);
+      setStatus(tr("generationDone", { retry: retryText, tasks: taskSummary, print: printSummary }));
     }
     return card;
   } catch (error) {
     clearCard();
     if (isSessionExhaustedError(error)) {
       showNewSessionAction();
-      setStatus(SESSION_EXHAUSTED_STATUS_MESSAGE);
+      setStatus(sessionExhaustedStatusMessage());
     } else {
-      setStatus(`Ошибка: ${localizedErrorMessage(error.message)}`);
+      setStatus(tr("errorPrefix", { message: localizedErrorMessage(error.message) }));
     }
     return null;
   } finally {
@@ -3104,7 +3463,7 @@ document.getElementById("loadPieces").onclick = () => {
   try {
     loadPiecesFromText();
   } catch (error) {
-    setStatus(`Ошибка: ${localizedErrorMessage(error.message)}`);
+    setStatus(tr("errorPrefix", { message: localizedErrorMessage(error.message) }));
   }
 };
 
@@ -3114,7 +3473,7 @@ document.getElementById("pieceFile").onchange = async (event) => {
   try {
     setPieces(JSON.parse(await file.text()), file.name);
   } catch (error) {
-    setStatus(`Ошибка: ${localizedErrorMessage(error.message)}`);
+    setStatus(tr("errorPrefix", { message: localizedErrorMessage(error.message) }));
   }
 };
 
@@ -3128,22 +3487,22 @@ document.getElementById("resetPieces").onclick = () => {
 
 document.getElementById("presetOldThingiverse").onclick = () => {
   applyPiecePreset("thingiverse6534722");
-  setStatus(`Выбрана старая редакция: ${generationPieces().length} деталей.`);
+  setStatus(tr("presetOld", { count: generationPieces().length }));
 };
 
 document.getElementById("presetFamilyThingiverse").onclick = () => {
   applyPiecePreset("thingiverse5072592");
-  setStatus(`Выбрана семейная редакция: ${generationPieces().length} деталей.`);
+  setStatus(tr("presetFamily", { count: generationPieces().length }));
 };
 
 document.getElementById("presetCustomPieces").onclick = () => {
   applyPiecePreset("custom");
-  setStatus(`Выбран пользовательский набор: ${generationPieces().length} деталей.`);
+  setStatus(tr("presetCustom", { count: generationPieces().length }));
 };
 
 document.getElementById("presetAllPieces").onclick = () => {
   applyPiecePreset("all");
-  setStatus(`Выбраны все детали: ${generationPieces().length}.`);
+  setStatus(tr("presetAll", { count: generationPieces().length }));
 };
 
 document.getElementById("resetPieceColors").onclick = () => {
@@ -3193,10 +3552,12 @@ document.getElementById("fillManualLayer").onclick = () => {
 document.getElementById("generate").onclick = handleGenerateCard;
 document.getElementById("mode2d").onclick = () => activateMode(MODE_2D);
 document.getElementById("mode3d").onclick = () => activateMode(MODE_3D);
+document.getElementById("languageRu").onclick = () => activateLanguage(LANGUAGE_RU);
+document.getElementById("languageEn").onclick = () => activateLanguage(LANGUAGE_EN);
 document.getElementById("newSession").onclick = () => {
   resetGenerationSession();
   hideNewSessionAction();
-  setStatus("Новая сессия начата. Можно создавать карточку.");
+  setStatus(tr("newSessionReady"));
 };
 
 document.getElementById("print").onclick = printReadyCards;
@@ -3204,5 +3565,6 @@ document.getElementById("printNow").onclick = printNow;
 document.getElementById("exportPdf").onclick = exportPdf;
 document.getElementById("exitPrintPreview").onclick = exitPrintPreview;
 
+activateLanguage(appLanguage, { initial: true });
 activateMode(appMode, { initial: true });
 loadDefaultPieces();

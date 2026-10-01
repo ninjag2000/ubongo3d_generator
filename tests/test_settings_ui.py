@@ -41,6 +41,14 @@ def test_target_cell_size_control_offers_supported_mm_sizes():
     assert 'id="targetCellSize"' in HTML
     assert '<option value="14.5" selected>14.5 mm</option>' in HTML
     assert '<option value="13">13 mm</option>' in HTML
+    assert '<option value="16">16 mm</option>' in HTML
+
+
+def test_language_switch_offers_russian_and_english():
+    assert 'id="languageRu"' in HTML
+    assert 'data-language="ru"' in HTML
+    assert 'id="languageEn"' in HTML
+    assert 'data-language="en"' in HTML
 
 
 def test_board_width_and_height_controls_are_not_rendered():

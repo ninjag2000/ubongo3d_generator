@@ -13,85 +13,92 @@
       <h1 id="appTitle">Генератор заданий Ubongo 2D</h1>
       <p id="appSubtitle">Один контур и шесть разных наборов из 12 фигур с фотографии.</p>
     </div>
-    <div class="modeSwitch" role="group" aria-label="Режим генератора">
-      <button id="mode2d" type="button" data-mode="2d" aria-pressed="true">2D</button>
-      <button id="mode3d" type="button" data-mode="3d" aria-pressed="false">3D</button>
+    <div class="headerSwitches">
+      <div class="languageSwitch" role="group" aria-label="Язык интерфейса" data-i18n-aria-label="languageLabel">
+        <button id="languageRu" type="button" data-language="ru" aria-pressed="true">RU</button>
+        <button id="languageEn" type="button" data-language="en" aria-pressed="false">EN</button>
+      </div>
+      <div class="modeSwitch" role="group" aria-label="Режим генератора" data-i18n-aria-label="generatorModeLabel">
+        <button id="mode2d" type="button" data-mode="2d" aria-pressed="true">2D</button>
+        <button id="mode3d" type="button" data-mode="3d" aria-pressed="false">3D</button>
+      </div>
     </div>
   </div>
 </header>
 <main>
   <section class="panel controls">
-    <h2>Настройки</h2>
+    <h2 data-i18n="settingsTitle">Настройки</h2>
     <div class="grid">
-      <label id="levelsField">Высота в уровнях <input id="levels" type="number" min="1" max="4" value="2"></label>
-      <label>Деталей в наборе <input id="pieceCount" type="number" min="3" max="7" value="3"></label>
-      <label>Номер карточки <input id="cardNumber" type="number" min="1" max="99" value="1"></label>
-      <label>Размер клетки контура
+      <label id="levelsField"><span data-i18n="levelsLabel">Высота в уровнях</span> <input id="levels" type="number" min="1" max="4" value="2"></label>
+      <label><span data-i18n="pieceCountLabel">Деталей в наборе</span> <input id="pieceCount" type="number" min="3" max="7" value="3"></label>
+      <label><span data-i18n="cardNumberLabel">Номер карточки</span> <input id="cardNumber" type="number" min="1" max="99" value="1"></label>
+      <label><span data-i18n="targetCellSizeLabel">Размер клетки контура</span>
         <select id="targetCellSize">
           <option value="14.5" selected>14.5 mm</option>
           <option value="13">13 mm</option>
+          <option value="16">16 mm</option>
         </select>
       </label>
-      <label>Вариантов на карточке
+      <label><span data-i18n="variantsLabel">Вариантов на карточке</span>
         <input id="comboCount" type="number" min="6" max="6" value="6" disabled aria-describedby="comboCountHint">
-        <span id="comboCountHint" class="fieldHint">В 2D: один контур и 6 разных наборов. В 3D: 6 вариантов, распределённых по одной или двум задачам.</span>
+        <span id="comboCountHint" class="fieldHint" data-i18n="variantsHint">В 2D: один контур и 6 разных наборов. В 3D: 6 вариантов, распределённых по одной или двум задачам.</span>
       </label>
-      <label>Попыток генерации <input id="attempts" type="number" min="50" max="10000" value="1200"></label>
-      <label>Seed <input id="seed" type="number" placeholder="случайный"></label>
+      <label><span data-i18n="attemptsLabel">Попыток генерации</span> <input id="attempts" type="number" min="50" max="10000" value="1200"></label>
+      <label><span data-i18n="seedLabel">Seed</span> <input id="seed" type="number" placeholder="случайный" data-i18n-placeholder="randomPlaceholder"></label>
     </div>
     <div class="buttons">
-      <button id="generate">Создать карточку</button>
-      <button id="togglePieceLibrary" type="button" aria-controls="pieceLibraryPanel" aria-expanded="false">Библиотека деталей</button>
+      <button id="generate" data-i18n="generateButton">Создать карточку</button>
+      <button id="togglePieceLibrary" type="button" aria-controls="pieceLibraryPanel" aria-expanded="false" data-i18n="pieceLibraryButton">Библиотека деталей</button>
     </div>
     <div class="manualLayer">
-      <label class="check"><input id="manualMode" type="checkbox"> нарисовать контур вручную</label>
+      <label class="check"><input id="manualMode" type="checkbox"> <span data-i18n="manualModeLabel">нарисовать контур вручную</span></label>
       <div class="manualLayerEditors">
         <div id="manualLayerEditorA" class="manualLayerEditor"></div>
         <div id="manualLayerEditorB" class="manualLayerEditor"></div>
       </div>
       <div class="buttons manualLayerButtons">
-        <button id="clearManualLayer" type="button">Очистить</button>
-        <button id="fillManualLayer" type="button">Заполнить</button>
+        <button id="clearManualLayer" type="button" data-i18n="clearButton">Очистить</button>
+        <button id="fillManualLayer" type="button" data-i18n="fillButton">Заполнить</button>
       </div>
     </div>
     <p id="libraryHint" class="hint">В режиме 2D используются 12 фигур, восстановленных по фотографии.</p>
   </section>
 
   <section id="pieceLibraryPanel" class="panel pieceLibraryPanel hidden">
-    <h2>Библиотека деталей</h2>
+    <h2 data-i18n="pieceLibraryTitle">Библиотека деталей</h2>
     <p id="pieceLibraryFormatHint" class="hint">Формат 2D: идентификатор, цвет и список целочисленных координат клеток. Разрешены повороты и отражения.</p>
     <textarea id="pieces"></textarea>
     <div class="buttons">
-      <button id="loadPieces">Применить библиотеку</button>
-      <label class="fileButton">Загрузить pieces.json <input id="pieceFile" type="file" accept="application/json,.json"></label>
+      <button id="loadPieces" data-i18n="applyLibraryButton">Применить библиотеку</button>
+      <label class="fileButton"><span data-i18n="loadPiecesFile">Загрузить pieces.json</span> <input id="pieceFile" type="file" accept="application/json,.json"></label>
       <button id="resetPieces">Вернуть встроенные детали</button>
     </div>
-    <div id="piecePresetBar" class="piecePresetBar" role="group" aria-label="Наборы библиотеки 3D">
-      <button id="presetOldThingiverse" type="button">Старая редакция</button>
-      <button id="presetFamilyThingiverse" type="button">Семейная редакция</button>
-      <button id="presetCustomPieces" type="button">Мой набор</button>
-      <button id="presetAllPieces" type="button">Все детали</button>
+    <div id="piecePresetBar" class="piecePresetBar" role="group" aria-label="Наборы библиотеки 3D" data-i18n-aria-label="librarySets3dLabel">
+      <button id="presetOldThingiverse" type="button" data-i18n="oldEditionButton">Старая редакция</button>
+      <button id="presetFamilyThingiverse" type="button" data-i18n="familyEditionButton">Семейная редакция</button>
+      <button id="presetCustomPieces" type="button" data-i18n="customSetButton">Мой набор</button>
+      <button id="presetAllPieces" type="button" data-i18n="allPiecesButton">Все детали</button>
     </div>
     <div class="pieceColorPanel">
       <div class="pieceColorHeader">
-        <h3>Цвета деталей</h3>
-        <button id="resetPieceColors" type="button">Сбросить цвета</button>
+        <h3 data-i18n="pieceColorsTitle">Цвета деталей</h3>
+        <button id="resetPieceColors" type="button" data-i18n="resetColorsButton">Сбросить цвета</button>
       </div>
       <div id="pieceColors" class="pieceColors"></div>
     </div>
   </section>
 
   <div class="statusRow">
-    <section id="status" class="status">Загрузка деталей…</section>
-    <button id="newSession" class="hidden" type="button">Новая сессия</button>
+    <section id="status" class="status" data-i18n="loadingPieces">Загрузка деталей…</section>
+    <button id="newSession" class="hidden" type="button" data-i18n="newSessionButton">Новая сессия</button>
   </div>
 
   <section id="printSelectionPanel" class="panel printSelectionPanel hidden">
     <div class="printSelectionHead">
-      <h2>Выбор для печати</h2>
+      <h2 data-i18n="printSelectionTitle">Выбор для печати</h2>
       <div class="printSelectionActions">
         <div id="printSelectionCount" class="printSelectionCount">Выбрано для печати: 0/2</div>
-        <button id="print" type="button">Печать / PDF</button>
+        <button id="print" type="button" data-i18n="printButton">Печать / PDF</button>
       </div>
     </div>
     <div id="generatedCardsList" class="generatedCardsList"></div>
@@ -99,29 +106,29 @@
 
   <section id="card" class="card hidden">
     <div class="cardHead">
-      <h2>Карточка задания</h2>
+      <h2 data-i18n="cardTitle">Карточка задания</h2>
       <div id="meta"></div>
     </div>
     <div id="gameCardView" class="gameCardView" aria-label="Карточка задания"></div>
     <h3 id="layersTitle">Целевой объём по слоям</h3>
     <div id="layers" class="layers"></div>
-    <h3 id="combosTitle">Наборы деталей</h3>
+    <h3 id="combosTitle" data-i18n="combosTitle">Наборы деталей</h3>
     <div id="combos" class="combos"></div>
     <details>
-      <summary>Показать решения</summary>
+      <summary data-i18n="showSolutions">Показать решения</summary>
       <div id="solutions" class="solutions"></div>
     </details>
   </section>
-  <div id="printPreviewToolbar" class="printPreviewToolbar" aria-label="Действия предпросмотра печати">
-    <button id="printNow" type="button">Печать</button>
-    <button id="exportPdf" type="button">Экспорт PDF</button>
-    <button id="exitPrintPreview" type="button">Закрыть предпросмотр</button>
+  <div id="printPreviewToolbar" class="printPreviewToolbar" aria-label="Действия предпросмотра печати" data-i18n-aria-label="printActionsLabel">
+    <button id="printNow" type="button" data-i18n="printNowButton">Печать</button>
+    <button id="exportPdf" type="button" data-i18n="exportPdfButton">Экспорт PDF</button>
+    <button id="exitPrintPreview" type="button" data-i18n="closePreviewButton">Закрыть предпросмотр</button>
   </div>
   <section id="printSheet" class="printSheet" aria-hidden="true"></section>
   <div id="generationOverlay" class="generationOverlay" aria-hidden="true">
     <div class="generationOverlayCard" role="status" aria-live="polite">
       <div class="generationSpinner" aria-hidden="true"></div>
-      <div id="generationOverlayText" class="generationOverlayText">Создаём новую карточку…</div>
+      <div id="generationOverlayText" class="generationOverlayText" data-i18n="generatingOverlay">Создаём новую карточку…</div>
     </div>
   </div>
 </main>

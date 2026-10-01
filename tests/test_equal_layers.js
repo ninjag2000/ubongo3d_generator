@@ -18,6 +18,8 @@ const inputs = {
   pieces: { value: "" },
   mode2d: makeTestElement("button"),
   mode3d: makeTestElement("button"),
+  languageRu: makeTestElement("button"),
+  languageEn: makeTestElement("button"),
   levelsField: makeTestElement("label"),
   piecePresetBar: makeTestElement("div"),
   appTitle: makeTestElement("h1"),
@@ -48,6 +50,12 @@ const inputs = {
   solutions: makeTestElement("div"),
 };
 const body = makeTestElement("body");
+const documentElement = makeTestElement("html");
+const translatedSettingsTitle = makeTestElement("h2");
+translatedSettingsTitle.setAttribute("data-i18n", "settingsTitle");
+const translatedSeedInput = makeTestElement("input");
+translatedSeedInput.setAttribute("data-i18n-placeholder", "randomPlaceholder");
+const staticTranslationTargets = [translatedSettingsTitle, translatedSeedInput];
 
 function makeTestElement(tagName = "div") {
   const element = {
@@ -241,6 +249,8 @@ global.URL = {
 
 global.document = {
   body,
+  documentElement,
+  title: "",
   getElementById(id) {
     return inputs[id] || { value: "", checked: false };
   },
@@ -255,6 +265,10 @@ global.document = {
   querySelector(selector) {
     if (selector === 'link[rel="stylesheet"]') return { getAttribute: () => "style.css?v=test" };
     return null;
+  },
+  querySelectorAll(selector) {
+    if (selector === "[data-i18n], [data-i18n-placeholder], [data-i18n-aria-label]") return staticTranslationTargets;
+    return [];
   },
 };
 global.localStorage = {
@@ -279,6 +293,26 @@ activateMode("3d");
 pieces = JSON.parse(fs.readFileSync("data/pieces_thingiverse_6534722.json", "utf8"));
 piecesByMode["3d"] = pieces;
 inputs.pieces.value = JSON.stringify(pieces);
+
+assert.strictEqual(appLanguage, "ru");
+activateLanguage("en");
+assert.strictEqual(appLanguage, "en");
+assert.strictEqual(localStorage.store.ubongo_generator_language_v1, "en");
+assert.strictEqual(document.documentElement.getAttribute("lang"), "en");
+assert.strictEqual(document.title, "Ubongo 2D / 3D Puzzle Generator");
+assert.strictEqual(translatedSettingsTitle.textContent, "Settings");
+assert.strictEqual(translatedSeedInput.getAttribute("placeholder"), "random");
+assert.strictEqual(inputs.appTitle.textContent, "Ubongo 3D Puzzle Generator");
+assert.strictEqual(inputs.languageEn.getAttribute("aria-pressed"), "true");
+assert.strictEqual(inputs.languageRu.getAttribute("aria-pressed"), "false");
+activateMode("2d");
+assert.strictEqual(inputs.appTitle.textContent, "Ubongo 2D Puzzle Generator");
+assert.ok(inputs.status.textContent.startsWith("2D mode ready"));
+activateLanguage("ru");
+assert.strictEqual(document.documentElement.getAttribute("lang"), "ru");
+assert.strictEqual(translatedSettingsTitle.textContent, "Настройки");
+assert.strictEqual(inputs.appTitle.textContent, "Генератор заданий Ubongo 2D");
+activateMode("3d");
 
 function layerSignature(cells, z) {
   return cells
@@ -479,6 +513,8 @@ assert.strictEqual(nextCardNumberValue(99), 1);
 assert.strictEqual(selectedTargetCellSize(), 14.5);
 inputs.targetCellSize.value = "13";
 assert.strictEqual(selectedTargetCellSize(), 13);
+inputs.targetCellSize.value = "16";
+assert.strictEqual(selectedTargetCellSize(), 16);
 inputs.targetCellSize.value = "14.5";
 assert.deepStrictEqual(boardDimensionsForTaskCount(1), { w: 7, h: 5 });
 assert.deepStrictEqual(boardDimensionsForTaskCount(2), { w: 7, h: 5 });
@@ -749,6 +785,28 @@ assert.strictEqual(thirteenMmGrid.style.gridTemplateRows, `repeat(${thirteenMmFo
 assert.strictEqual(thirteenMmOutline.getAttribute("viewBox"), `0 0 ${thirteenMmFootprintWidth * 13} ${thirteenMmFootprintHeight * 13}`);
 assert.strictEqual(thirteenMmOutline.getAttribute("width"), `${thirteenMmFootprintWidth * 13}mm`);
 assert.strictEqual(thirteenMmOutline.getAttribute("height"), `${thirteenMmFootprintHeight * 13}mm`);
+renderGameCardView({ ...defaultCard, targetCellSizeMm: 16 });
+const sixteenMmMap = findAllElements(inputs.gameCardView, (node) => (node.className || "").includes("gameTargetMap"))[0];
+const sixteenMmFootprintWidth = Number(sixteenMmMap.getAttribute("data-footprint-width"));
+const sixteenMmFootprintHeight = Number(sixteenMmMap.getAttribute("data-footprint-height"));
+assert.strictEqual(sixteenMmMap.getAttribute("data-target-cell-size"), "16");
+assert.strictEqual(sixteenMmMap.style.width, `${sixteenMmFootprintWidth * 16}mm`);
+assert.strictEqual(sixteenMmMap.style.height, `${sixteenMmFootprintHeight * 16}mm`);
+
+renderGameCardView({
+  mode: "2d",
+  seed: 777,
+  w: 7,
+  h: 5,
+  levels: 1,
+  pieceCount: 3,
+  targetCellSizeMm: 16,
+  target: [[0, 0, 0], [1, 0, 0], [0, 1, 0]],
+  combos: [],
+  tasks: [{ target: [[0, 0, 0], [1, 0, 0], [0, 1, 0]], combos: [], requestedComboCount: 6 }],
+});
+const sixteenMm2dMap = findAllElements(inputs.gameCardView, (node) => (node.className || "").includes("gameTargetMap"))[0];
+assert.strictEqual(sixteenMm2dMap.getAttribute("data-target-cell-size"), "16");
 renderGameCardView({
   seed: 2468,
   w: 4,
