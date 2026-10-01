@@ -106,13 +106,25 @@ function verifyCard(card, expectedPieceCount, expectedBoard = { w: 7, h: 5 }) {
   for (let first = 0; first < card.combos.length; first++) {
     for (let second = first + 1; second < card.combos.length; second++) {
       assert.ok(
-        solutionLayoutSimilarity(card.combos[first], card.combos[second], card.target) <= 0.72,
+        solutionLayoutSimilarity(card.combos[first], card.combos[second], card.target) <= 0.6,
         `solutions ${first + 1} and ${second + 1} are too similar`,
+      );
+      assert.ok(
+        sharedPlacementCount(card.combos[first], card.combos[second]) <= 1,
+        `solutions ${first + 1} and ${second + 1} repeat a combination of placed pieces`,
       );
     }
   }
   const placementCounts = new Map();
+  const placementCache = Object.fromEntries(card.pieceLibrary.map((piece) => [
+    piece.id,
+    makePlacementsForPiece(piece, card.w, card.h, card.levels),
+  ]));
   for (const combo of card.combos) {
+    assert.ok(
+      minimumPieceChoicesPerTargetCell(combo, card.target, placementCache) >= 2,
+      "a protrusion or hole has a cell that only one piece can cover",
+    );
     for (const placement of combo.solution) {
       const signature = `${placement.id}|${serializeAbsolute(placement.cubes)}`;
       placementCounts.set(signature, (placementCounts.get(signature) || 0) + 1);

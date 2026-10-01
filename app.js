@@ -840,6 +840,28 @@ function comboPlacementSignatures(combo) {
   return (combo?.solution || []).map((placement) => `${canonicalPieceId(placement.id)}|${serializeAbsolute(placement.cubes || [])}`);
 }
 
+function sharedPlacementCount(first, second) {
+  const firstPlacements = new Set(comboPlacementSignatures(first));
+  return comboPlacementSignatures(second).filter((signature) => firstPlacements.has(signature)).length;
+}
+
+function minimumPieceChoicesPerTargetCell(combo, target, placementCache) {
+  const targetKeys = new Set((target || []).map(key));
+  if (!targetKeys.size) return 0;
+  const choicesByCell = new Map([...targetKeys].map((cellKey) => [cellKey, 0]));
+  for (const id of combo?.pieces || []) {
+    const coveredByPiece = new Set();
+    for (const placement of placementCache?.[id] || []) {
+      if (!(placement.cubes || []).every((cell) => targetKeys.has(key(cell)))) continue;
+      for (const cell of placement.cubes || []) coveredByPiece.add(key(cell));
+    }
+    for (const cellKey of coveredByPiece) {
+      choicesByCell.set(cellKey, (choicesByCell.get(cellKey) || 0) + 1);
+    }
+  }
+  return Math.min(...choicesByCell.values());
+}
+
 function selectDiverseCombos(combos, requestedCount, history, rng, options = {}) {
   const selected = [];
   const usedPieceCounts = new Map();
@@ -849,10 +871,14 @@ function selectDiverseCombos(combos, requestedCount, history, rng, options = {})
     let bestIndex = -1;
     let bestScore = -Infinity;
     for (let i = 0; i < remaining.length; i++) {
+      if (Number.isFinite(options.minPiecesPerCell) && options.minPiecesPerCell > 0 &&
+        minimumPieceChoicesPerTargetCell(remaining[i], options.target, options.placementCache) < options.minPiecesPerCell) continue;
       const maxLayoutSimilarity = options.requireDistinctLayouts && selected.length
         ? Math.max(...selected.map((combo) => solutionLayoutSimilarity(combo, remaining[i], options.target)))
         : 0;
-      if (maxLayoutSimilarity > 0.72) continue;
+      if (maxLayoutSimilarity > (options.maxLayoutSimilarity ?? 0.72)) continue;
+      if (Number.isFinite(options.maxSharedPlacementsPerPair) && selected.some((combo) =>
+        sharedPlacementCount(combo, remaining[i]) > options.maxSharedPlacementsPerPair)) continue;
       const placementSignatures = comboPlacementSignatures(remaining[i]);
       if (Number.isFinite(options.maxPlacementRepeats) && placementSignatures.some((signature) =>
         (usedPlacementCounts.get(signature) || 0) >= options.maxPlacementRepeats)) continue;
@@ -2004,7 +2030,7 @@ function generateSingleTask(options = {}) {
     const foundCombos = [];
     const seenSets = new Set();
     const comboSearchLimit = is2dMode()
-      ? Math.max(comboCount * 5, 30)
+      ? Math.max(comboCount * 10, 60)
       : manualTarget
         ? Math.max(comboCount * 2, 12)
         : Math.max(comboCount, 6);
@@ -2028,7 +2054,11 @@ function generateSingleTask(options = {}) {
     const combos = selectDiverseCombos(foundCombos, comboCount, scoringHistory, rng, {
       target,
       requireDistinctLayouts: is2dMode(),
+      maxLayoutSimilarity: is2dMode() ? 0.6 : 0.72,
       maxPlacementRepeats: is2dMode() ? 2 : Infinity,
+      maxSharedPlacementsPerPair: is2dMode() ? 1 : Infinity,
+      placementCache,
+      minPiecesPerCell: is2dMode() ? 2 : 0,
     });
     const cardTarget = target;
     if (!manualTarget && combos.length > 0 && isPlainRectangularTarget(cardTarget)) {

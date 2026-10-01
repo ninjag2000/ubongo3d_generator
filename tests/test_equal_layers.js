@@ -468,6 +468,71 @@ const spatiallyDiverseSelection = selectDiverseCombos(
 );
 assert.deepStrictEqual(spatiallyDiverseSelection.map((combo) => combo.pieces.join(",")), ["D01,D02,D03", "D07,D08"]);
 
+// Two solutions may share one exact placement, but never a repeated pair of placements.
+const sharedPlacementTarget = [
+  [0, 0, 0], [1, 0, 0], [2, 0, 0], [3, 0, 0],
+  [0, 1, 0], [1, 1, 0], [2, 1, 0], [3, 1, 0],
+  [0, 2, 0], [1, 2, 0], [2, 2, 0], [3, 2, 0],
+];
+const repeatedPlacementPairCombos = [
+  {
+    pieces: ["D01", "D02", "D03", "D04"],
+    solution: [
+      { id: "D01", cubes: [[0, 0, 0]] },
+      { id: "D02", cubes: [[3, 2, 0]] },
+      { id: "D03", cubes: [[1, 0, 0], [2, 0, 0], [3, 0, 0], [0, 1, 0], [1, 1, 0], [2, 1, 0], [3, 1, 0]] },
+      { id: "D04", cubes: [[0, 2, 0], [1, 2, 0], [2, 2, 0]] },
+    ],
+  },
+  {
+    pieces: ["D01", "D02", "D05", "D06"],
+    solution: [
+      { id: "D01", cubes: [[0, 0, 0]] },
+      { id: "D02", cubes: [[3, 2, 0]] },
+      { id: "D05", cubes: [[0, 1, 0], [0, 2, 0], [1, 0, 0], [1, 1, 0], [1, 2, 0]] },
+      { id: "D06", cubes: [[2, 0, 0], [2, 1, 0], [2, 2, 0], [3, 0, 0], [3, 1, 0]] },
+    ],
+  },
+];
+const repeatedPairSelection = selectDiverseCombos(
+  repeatedPlacementPairCombos,
+  2,
+  emptyGenerationHistory(),
+  () => 0,
+  {
+    target: sharedPlacementTarget,
+    requireDistinctLayouts: true,
+    maxPlacementRepeats: 2,
+    maxSharedPlacementsPerPair: 1,
+  },
+);
+assert.strictEqual(repeatedPairSelection.length, 1);
+
+// Every target cell must be reachable by at least two different pieces in the set.
+const constrainedCellTarget = [[0, 0, 0], [1, 0, 0], [2, 0, 0]];
+const constrainedCellCombos = [
+  { pieces: ["D01", "D02"], solution: [] },
+  { pieces: ["D03", "D04"], solution: [] },
+];
+const constrainedPlacementCache = {
+  D01: constrainedCellTarget.map((cell) => ({ cubes: [cell] })),
+  D02: constrainedCellTarget.slice(1).map((cell) => ({ cubes: [cell] })),
+  D03: constrainedCellTarget.map((cell) => ({ cubes: [cell] })),
+  D04: constrainedCellTarget.map((cell) => ({ cubes: [cell] })),
+};
+const unconstrainedCellSelection = selectDiverseCombos(
+  constrainedCellCombos,
+  1,
+  emptyGenerationHistory(),
+  () => 0,
+  {
+    target: constrainedCellTarget,
+    placementCache: constrainedPlacementCache,
+    minPiecesPerCell: 2,
+  },
+);
+assert.deepStrictEqual(unconstrainedCellSelection.map((combo) => combo.pieces.join(",")), ["D03,D04"]);
+
 // Automatic 2D targets should use compact notches instead of one-cell-wide tails.
 const compactNotchedTarget = [
   [1, 0, 0], [2, 0, 0],
