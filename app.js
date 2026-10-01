@@ -806,24 +806,71 @@ function comboDiversityScore(combo, usedPieceCounts, history, rng) {
   return uniqueIds.size * 120 - overlap * 180 - repeatPressure * 95 - historyPenalty * 70 + rng() * 8;
 }
 
-function selectDiverseCombos(combos, requestedCount, history, rng) {
+function solutionBoundarySet(solution, target) {
+  const targetSet = new Set((target || []).map(key));
+  const pieceByCell = new Map();
+  for (const placement of solution || []) {
+    for (const cell of placement.cubes || []) pieceByCell.set(key(cell), placement.id);
+  }
+  const boundaries = new Set();
+  for (const [x, y, z = 0] of target || []) {
+    for (const [dx, dy, dz] of [[1, 0, 0], [0, 1, 0]]) {
+      const neighbor = [x + dx, y + dy, z + dz];
+      const neighborKey = key(neighbor);
+      if (!targetSet.has(neighborKey)) continue;
+      const cellKey = key([x, y, z]);
+      if (pieceByCell.get(cellKey) !== pieceByCell.get(neighborKey)) {
+        boundaries.add(`${cellKey}|${neighborKey}`);
+      }
+    }
+  }
+  return boundaries;
+}
+
+function solutionLayoutSimilarity(first, second, target) {
+  const firstBoundaries = solutionBoundarySet(first?.solution, target);
+  const secondBoundaries = solutionBoundarySet(second?.solution, target);
+  const union = new Set([...firstBoundaries, ...secondBoundaries]);
+  if (!union.size) return 1;
+  const shared = [...firstBoundaries].filter((edge) => secondBoundaries.has(edge)).length;
+  return shared / union.size;
+}
+
+function comboPlacementSignatures(combo) {
+  return (combo?.solution || []).map((placement) => `${canonicalPieceId(placement.id)}|${serializeAbsolute(placement.cubes || [])}`);
+}
+
+function selectDiverseCombos(combos, requestedCount, history, rng, options = {}) {
   const selected = [];
   const usedPieceCounts = new Map();
+  const usedPlacementCounts = new Map();
   const remaining = combos.slice();
   while (remaining.length && selected.length < requestedCount) {
-    let bestIndex = 0;
+    let bestIndex = -1;
     let bestScore = -Infinity;
     for (let i = 0; i < remaining.length; i++) {
-      const score = comboDiversityScore(remaining[i], usedPieceCounts, history, rng);
+      const maxLayoutSimilarity = options.requireDistinctLayouts && selected.length
+        ? Math.max(...selected.map((combo) => solutionLayoutSimilarity(combo, remaining[i], options.target)))
+        : 0;
+      if (maxLayoutSimilarity > 0.72) continue;
+      const placementSignatures = comboPlacementSignatures(remaining[i]);
+      if (Number.isFinite(options.maxPlacementRepeats) && placementSignatures.some((signature) =>
+        (usedPlacementCounts.get(signature) || 0) >= options.maxPlacementRepeats)) continue;
+      const repeatedPlacements = placementSignatures.filter((signature) => (usedPlacementCounts.get(signature) || 0) > 0).length;
+      const score = comboDiversityScore(remaining[i], usedPieceCounts, history, rng) - maxLayoutSimilarity * 500 - repeatedPlacements * 140;
       if (score > bestScore) {
         bestIndex = i;
         bestScore = score;
       }
     }
+    if (bestIndex < 0) break;
     const [combo] = remaining.splice(bestIndex, 1);
     selected.push(combo);
     for (const id of combo.pieces.map(canonicalPieceId)) {
       usedPieceCounts.set(id, (usedPieceCounts.get(id) || 0) + 1);
+    }
+    for (const signature of comboPlacementSignatures(combo)) {
+      usedPlacementCounts.set(signature, (usedPlacementCounts.get(signature) || 0) + 1);
     }
   }
   return selected;
@@ -922,6 +969,32 @@ function isPlainRectangularTarget(cells) {
   return stats.area >= 6 && stats.area === stats.width * stats.height && targetLayerPerimeter(cells) === 2 * (stats.width + stats.height);
 }
 
+function targetLayerBranchStats(cells) {
+  const layer = cells.filter((cell) => cell[2] === 0).map(([x, y]) => [x, y]);
+  const occupied = new Set(layer.map(([x, y]) => `${x},${y}`));
+  const neighbors = ([x, y]) => [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]]
+    .filter(([nx, ny]) => occupied.has(`${nx},${ny}`));
+  const leafCount = layer.filter((cell) => neighbors(cell).length <= 1).length;
+  let articulationCount = 0;
+  for (const removed of layer) {
+    if (layer.length <= 2) break;
+    const removedKey = `${removed[0]},${removed[1]}`;
+    const start = layer.find(([x, y]) => `${x},${y}` !== removedKey);
+    const seen = new Set([`${start[0]},${start[1]}`]);
+    const queue = [start];
+    while (queue.length) {
+      for (const next of neighbors(queue.shift())) {
+        const nextKey = `${next[0]},${next[1]}`;
+        if (nextKey === removedKey || seen.has(nextKey)) continue;
+        seen.add(nextKey);
+        queue.push(next);
+      }
+    }
+    if (seen.size !== layer.length - 1) articulationCount++;
+  }
+  return { leafCount, articulationCount };
+}
+
 function targetShapeScore(cells) {
   const stats = targetLayerStats(cells);
   const perimeter = targetLayerPerimeter(cells);
@@ -931,13 +1004,16 @@ function targetShapeScore(cells) {
   const span = Math.max(stats.width, stats.height);
   const rectanglePenalty = isPlainRectangularTarget(cells) ? 100 : 0;
   const skinnyPenalty = Math.min(stats.width, stats.height) === 1 ? 12 : 0;
-  return perimeter + missingInBox * 4 + span * 2 - Math.round(fillRatio * 6) - rectanglePenalty - skinnyPenalty;
+  const baseScore = perimeter + missingInBox * 4 + span * 2 - Math.round(fillRatio * 6) - rectanglePenalty - skinnyPenalty;
+  if (!is2dMode()) return baseScore;
+  const branchStats = targetLayerBranchStats(cells);
+  return baseScore - branchStats.leafCount * 24 - branchStats.articulationCount * 10;
 }
 
 function boardFitRequirement(w, h) {
   const largeBoard = Math.min(w, h) >= 6;
   return {
-    required: largeBoard,
+    required: is2dMode() || largeBoard,
     minSpan: largeBoard ? 4 : Math.min(3, Math.min(w, h)),
     minArea: largeBoard ? 8 : Math.min(6, w * h),
   };
@@ -960,7 +1036,10 @@ function targetFitScore(card) {
 function usesBoardWell(card) {
   const stats = targetLayerStats(card.target);
   const requirement = boardFitRequirement(card.w, card.h);
-  return (stats.width >= requirement.minSpan || stats.height >= requirement.minSpan) && stats.area >= requirement.minArea;
+  const fillsBoard = (stats.width >= requirement.minSpan || stats.height >= requirement.minSpan) && stats.area >= requirement.minArea;
+  if (!fillsBoard || !is2dMode()) return fillsBoard;
+  const branchStats = targetLayerBranchStats(card.target);
+  return branchStats.leafCount === 0 && branchStats.articulationCount === 0;
 }
 
 function rotations(cubes) {
@@ -1924,7 +2003,11 @@ function generateSingleTask(options = {}) {
     const candidateSets = shuffle(rng, allSubsets.filter((set) => set.reduce((sum, p) => sum + p.cubes.length, 0) === targetVol));
     const foundCombos = [];
     const seenSets = new Set();
-    const comboSearchLimit = manualTarget || is2dMode() ? Math.max(comboCount * 2, 12) : Math.max(comboCount, 6);
+    const comboSearchLimit = is2dMode()
+      ? Math.max(comboCount * 5, 30)
+      : manualTarget
+        ? Math.max(comboCount * 2, 12)
+        : Math.max(comboCount, 6);
     const candidateSetLimit = manualTarget
       ? candidateSets.length
       : is2dMode()
@@ -1942,7 +2025,11 @@ function generateSingleTask(options = {}) {
         if (foundCombos.length >= comboSearchLimit) break;
       }
     }
-    const combos = selectDiverseCombos(foundCombos, comboCount, scoringHistory, rng);
+    const combos = selectDiverseCombos(foundCombos, comboCount, scoringHistory, rng, {
+      target,
+      requireDistinctLayouts: is2dMode(),
+      maxPlacementRepeats: is2dMode() ? 2 : Infinity,
+    });
     const cardTarget = target;
     if (!manualTarget && combos.length > 0 && isPlainRectangularTarget(cardTarget)) {
       plainRectangularOnly = true;

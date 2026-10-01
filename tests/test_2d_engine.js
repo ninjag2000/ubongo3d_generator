@@ -103,6 +103,23 @@ function verifyCard(card, expectedPieceCount, expectedBoard = { w: 7, h: 5 }) {
     assert.strictEqual(new Set(occupied.map(key)).size, target.size);
     assert.ok(occupied.every((cell) => target.has(key(cell))));
   }
+  for (let first = 0; first < card.combos.length; first++) {
+    for (let second = first + 1; second < card.combos.length; second++) {
+      assert.ok(
+        solutionLayoutSimilarity(card.combos[first], card.combos[second], card.target) <= 0.72,
+        `solutions ${first + 1} and ${second + 1} are too similar`,
+      );
+    }
+  }
+  const placementCounts = new Map();
+  for (const combo of card.combos) {
+    for (const placement of combo.solution) {
+      const signature = `${placement.id}|${serializeAbsolute(placement.cubes)}`;
+      placementCounts.set(signature, (placementCounts.get(signature) || 0) + 1);
+    }
+  }
+  assert.ok(Math.max(...placementCounts.values()) <= 2, "a piece repeats the same obvious placement too often");
+  assert.strictEqual(usesBoardWell(card), true);
   assert.ok(card.target.every(([x, y]) => x >= 0 && x < expectedBoard.w && y >= 0 && y < expectedBoard.h));
   assert.ok(connected(card.target));
   assert.ok(!isPlainRectangularTarget(card.target));

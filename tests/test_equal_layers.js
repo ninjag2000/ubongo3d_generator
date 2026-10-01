@@ -429,6 +429,65 @@ const repeatedPieceCombos = [
 const repeatedPieceSelection = selectDiverseCombos(repeatedPieceCombos, 3, emptyGenerationHistory(), () => 0);
 assert.deepStrictEqual(repeatedPieceSelection.map((combo) => combo.pieces.join(",")), ["P01,P02", "P01,P03", "P02,P04"]);
 
+// The selector must reject the same spatial partition even when different pieces occupy it.
+const layoutTarget = [
+  [0, 0, 0], [1, 0, 0], [2, 0, 0],
+  [0, 1, 0], [1, 1, 0], [2, 1, 0],
+];
+const layoutCombos = [
+  {
+    pieces: ["D01", "D02", "D03"],
+    solution: [
+      { id: "D01", cubes: [[0, 0, 0], [0, 1, 0]] },
+      { id: "D02", cubes: [[1, 0, 0], [1, 1, 0]] },
+      { id: "D03", cubes: [[2, 0, 0], [2, 1, 0]] },
+    ],
+  },
+  {
+    pieces: ["D04", "D05", "D06"],
+    solution: [
+      { id: "D04", cubes: [[0, 0, 0], [0, 1, 0]] },
+      { id: "D05", cubes: [[1, 0, 0], [1, 1, 0]] },
+      { id: "D06", cubes: [[2, 0, 0], [2, 1, 0]] },
+    ],
+  },
+  {
+    pieces: ["D07", "D08"],
+    solution: [
+      { id: "D07", cubes: [[0, 0, 0], [1, 0, 0], [2, 0, 0]] },
+      { id: "D08", cubes: [[0, 1, 0], [1, 1, 0], [2, 1, 0]] },
+    ],
+  },
+];
+const spatiallyDiverseSelection = selectDiverseCombos(
+  layoutCombos,
+  2,
+  emptyGenerationHistory(),
+  () => 0,
+  { target: layoutTarget, requireDistinctLayouts: true },
+);
+assert.deepStrictEqual(spatiallyDiverseSelection.map((combo) => combo.pieces.join(",")), ["D01,D02,D03", "D07,D08"]);
+
+// Automatic 2D targets should use compact notches instead of one-cell-wide tails.
+const compactNotchedTarget = [
+  [1, 0, 0], [2, 0, 0],
+  [0, 1, 0], [1, 1, 0], [2, 1, 0], [3, 1, 0],
+  [0, 2, 0], [1, 2, 0], [2, 2, 0], [3, 2, 0],
+];
+const obviousTailedTarget = [
+  [0, 0, 0], [1, 0, 0],
+  [0, 1, 0], [1, 1, 0], [2, 1, 0], [3, 1, 0],
+  [0, 2, 0], [1, 2, 0],
+  [0, 3, 0], [0, 4, 0],
+];
+const modeBeforeCompactTargetCheck = appMode;
+appMode = "2d";
+assert.strictEqual(boardFitRequirement(6, 5).required, true);
+assert.strictEqual(usesBoardWell({ target: compactNotchedTarget, w: 6, h: 5 }), true);
+assert.strictEqual(usesBoardWell({ target: obviousTailedTarget, w: 6, h: 5 }), false);
+assert.ok(targetShapeScore(compactNotchedTarget) > targetShapeScore(obviousTailedTarget));
+appMode = modeBeforeCompactTargetCheck;
+
 const customSizePreview = makeTestElement("div");
 drawPiece3d(customSizePreview, [[0, 0, 0], [1, 0, 0]], { compact: true, color: "#999999", width: 58, height: 50 });
 const customSizeSvg = findAllElements(customSizePreview, (node) => node.tagName === "SVG")[0];
