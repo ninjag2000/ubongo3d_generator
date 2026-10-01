@@ -83,12 +83,14 @@ assert.strictEqual(fixedCellPreview.getAttribute("data-rows"), "1");
 assert.ok(fixedCellPreview.children.every((cell) =>
   cell.getAttribute("width") === "10" && cell.getAttribute("height") === "10"));
 
-function verifyCard(card, expectedPieceCount) {
+function verifyCard(card, expectedPieceCount, expectedBoard = { w: 7, h: 5 }) {
   assert.strictEqual(card.mode, MODE_2D);
   assert.strictEqual(card.levels, 1);
-  assert.strictEqual(card.w, 7);
-  assert.strictEqual(card.h, 5);
+  assert.strictEqual(card.w, expectedBoard.w);
+  assert.strictEqual(card.h, expectedBoard.h);
   assert.strictEqual(card.tasks.length, 1);
+  assert.strictEqual(card.tasks[0].w, expectedBoard.w);
+  assert.strictEqual(card.tasks[0].h, expectedBoard.h);
   assert.strictEqual(card.combos.length, 6);
   assert.strictEqual(card.incomplete, false);
   assert.strictEqual(card.challengeCode, `2D-${expectedPieceCount}-07`);
@@ -101,6 +103,7 @@ function verifyCard(card, expectedPieceCount) {
     assert.strictEqual(new Set(occupied.map(key)).size, target.size);
     assert.ok(occupied.every((cell) => target.has(key(cell))));
   }
+  assert.ok(card.target.every(([x, y]) => x >= 0 && x < expectedBoard.w && y >= 0 && y < expectedBoard.h));
   assert.ok(connected(card.target));
   assert.ok(!isPlainRectangularTarget(card.target));
 }
@@ -134,5 +137,7 @@ inputs.seed.value = "424242";
 generationHistory = emptyGenerationHistory();
 const sixteenMmCard = generateCardWithRetries(8);
 assert.strictEqual(sixteenMmCard.targetCellSizeMm, 16);
+verifyCard(sixteenMmCard, 3, { w: 6, h: 5 });
+assert.strictEqual(boardLabelForCard(sixteenMmCard), "6x5");
 
 console.log("2D engine tests passed");

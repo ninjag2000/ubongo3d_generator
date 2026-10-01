@@ -1113,6 +1113,7 @@ function selectedTaskCount() {
 }
 
 function boardDimensionsForTaskCount(taskCount) {
+  if (is2dMode() && selectedTargetCellSize() === 16) return { w: 6, h: 5 };
   return { w: 7, h: 5 };
 }
 
@@ -1132,12 +1133,18 @@ function currentTaskBoardDimensions(taskIndex = 0) {
 }
 
 function boardLabelForTaskCount(taskCount) {
-  if (is2dMode()) return "7x5";
+  if (is2dMode()) {
+    const { w, h } = boardDimensionsForTaskCount(taskCount);
+    return `${w}x${h}`;
+  }
   return taskCount === 2 ? "3x5 + 4x5" : "7x5";
 }
 
 function boardLabelForCard(card) {
-  if (card?.mode === MODE_2D) return "7x5";
+  if (card?.mode === MODE_2D) {
+    const task = card?.tasks?.[0] || card;
+    return `${Number(task?.w) || 7}x${Number(task?.h) || 5}`;
+  }
   const taskCount = card?.tasks?.length || 1;
   return boardLabelForTaskCount(taskCount);
 }
@@ -3521,6 +3528,7 @@ document.getElementById("togglePieceLibrary").onclick = () => {
 
 document.getElementById("pieceCount").onchange = renderManualLayerEditor;
 document.getElementById("manualMode").onchange = renderManualLayerEditor;
+document.getElementById("targetCellSize").onchange = renderManualLayerEditor;
 
 document.getElementById("clearManualLayer").onclick = () => {
   manualLayerCellsA.clear();
